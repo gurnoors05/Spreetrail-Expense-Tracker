@@ -46,6 +46,11 @@ export const authApi = {
   me:       ()     => api.get('/auth/me/'),
 };
 
+// ─── Users ───────────────────────────────────────────────
+export const usersApi = {
+  list: () => api.get('/users/'),
+};
+
 // ─── Groups ──────────────────────────────────────────────
 export const groupsApi = {
   list:            ()       => api.get('/groups/'),

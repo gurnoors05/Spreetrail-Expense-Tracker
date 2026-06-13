@@ -9,6 +9,12 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = (permissions.AllowAny,)
     serializer_class = RegisterSerializer
 
+class UserListView(generics.ListAPIView):
+    """Returns all registered users so the frontend can show a username dropdown."""
+    queryset = User.objects.all().order_by('username')
+    serializer_class = UserSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserSerializer
     permission_classes = (permissions.IsAuthenticated,)
