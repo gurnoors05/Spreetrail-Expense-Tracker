@@ -121,7 +121,7 @@ class CSVImporter:
         if is_settlement:
             payee, payee_err = self.normalize_member_name(split_with_raw)
             if payee:
-                self._create_anomaly(batch, row_num, 'Settlement Logged as Expense', f'Converted to Settlement from {payer.username} to {payee.username}.', 'auto_applied')
+                self._create_anomaly(batch, row_num, 'Settlement Logged as Expense', f'Converted to Settlement from {payer.username} to {payee.username}.', 'auto_applied', f'Converted to Settlement from {payer.username} to {payee.username}.')
                 # For auto-applied settlements, we can create them immediately
                 Settlement.objects.create(
                     group=self.group, paid_by=payer, paid_to=payee,
@@ -134,13 +134,21 @@ class CSVImporter:
 
         # 7. Duplicates
         import difflib
+        import re
         description = row.get('description', '').strip()
         possible_dups = Expense.objects.filter(
             group=self.group, date=parsed_date, status='active'
         )
         
+        def _token_sort(s):
+            words = re.findall(r'\w+', s.lower())
+            words.sort()
+            return "".join(words)
+            
+        desc_sorted = _token_sort(description)
+        
         for dup in possible_dups:
-            sim = difflib.SequenceMatcher(None, description.lower(), dup.description.lower()).ratio()
+            sim = difflib.SequenceMatcher(None, desc_sorted, _token_sort(dup.description)).ratio()
             if sim > 0.8:
                 if dup.amount == final_amount and dup.paid_by == payer:
                     self._create_anomaly(batch, row_num, 'Exact Duplicate', f"Matches exact expense: {dup.description}", 'auto_applied', 'Discarded')

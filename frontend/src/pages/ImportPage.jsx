@@ -63,11 +63,12 @@ export default function ImportPage() {
   const [report, setReport]       = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [error, setError]         = useState('');
+  const [success, setSuccess]     = useState('');
 
   const upload = async (e) => {
     e.preventDefault();
     if (!file || !groupId) { setError('Select a group and file.'); return; }
-    setError(''); setUploading(true);
+    setError(''); setSuccess(''); setUploading(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -75,6 +76,7 @@ export default function ImportPage() {
       const { data } = await importApi.upload(fd);
       setBatchId(data.batch_id);
       await loadReport(data.batch_id);
+      setSuccess('File uploaded and processed successfully!');
     } catch (err) {
       setError(err.response?.data?.error || 'Upload failed.');
     } finally { setUploading(false); }
@@ -131,6 +133,7 @@ export default function ImportPage() {
             </div>
           </div>
           {error && <p className="form-error">{error}</p>}
+          {success && <p style={{ color:'var(--success)', fontWeight:600, fontSize: 14, margin:0 }}>{success}</p>}
           <button id="import-submit" className="btn btn-primary" type="submit" disabled={uploading || !file || !groupId} style={{ alignSelf:'flex-start', minWidth:140 }}>
             {uploading ? <><span className="spinner"/> Processing…</> : '⤒ Upload & Process'}
           </button>
