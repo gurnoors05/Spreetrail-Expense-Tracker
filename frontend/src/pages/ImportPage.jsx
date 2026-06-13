@@ -166,14 +166,13 @@ export default function ImportPage() {
   useEffect(() => {
     usersApi.list().then(res => setAllUsers(res.data)).catch(console.error);
     groupsApi.list().then(res => setGroups(res.data)).catch(console.error);
-    if (groupId) {
-      fetchBatches(groupId);
-    }
+    fetchBatches(groupId);
   }, [groupId]);
 
   const fetchBatches = async (gid) => {
     try {
-      const res = await importApi.list({ group: gid });
+      const params = gid ? { group: gid } : {};
+      const res = await importApi.list(params);
       setBatches(res.data);
     } catch(e) { console.error(e); }
   };
