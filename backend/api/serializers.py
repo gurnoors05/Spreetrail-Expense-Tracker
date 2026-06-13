@@ -149,3 +149,17 @@ class ExpenseSerializer(serializers.ModelSerializer):
             )
 
         return expense
+
+from core.models import ImportBatch, ImportAnomaly
+
+class ImportAnomalySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImportAnomaly
+        fields = '__all__'
+
+class ImportBatchSerializer(serializers.ModelSerializer):
+    anomalies = ImportAnomalySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ImportBatch
+        fields = ('id', 'file_name', 'uploaded_at', 'status', 'anomalies')

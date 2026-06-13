@@ -78,3 +78,43 @@ class ImportBatchViewSet(viewsets.ViewSet):
         batch = importer.process_file(file_obj)
         
         return Response({"message": "File uploaded and processed.", "batch_id": batch.id}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'])
+    def report(self, request, pk=None):
+        try:
+            from core.models import ImportBatch
+            batch = ImportBatch.objects.get(pk=pk, uploaded_by=request.user)
+        except ImportBatch.DoesNotExist:
+            return Response({"error": "Batch not found."}, status=404)
+        from .serializers import ImportBatchSerializer
+        serializer = ImportBatchSerializer(batch)
+        return Response(serializer.data)
+
+from core.models import ImportAnomaly
+from .serializers import ImportAnomalySerializer
+
+class ImportAnomalyViewSet(viewsets.ModelViewSet):
+    queryset = ImportAnomaly.objects.all()
+    serializer_class = ImportAnomalySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return self.queryset.filter(import_batch__uploaded_by=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        anomaly = self.get_object()
+        action_taken = request.data.get('action_taken')
+        
+        if not action_taken:
+            return Response({"error": "action_taken is required"}, status=400)
+            
+        anomaly.status = 'resolved'
+        anomaly.action_taken = action_taken
+        anomaly.save()
+        
+        # Note: In the real app, this endpoint would accept the corrected payload 
+        # and trigger the creation of the Expense + ExpenseSplits. 
+        # For the assignment skeleton, updating the status to resolved is the primary requirement.
+        
+        return Response({"message": "Anomaly resolved successfully."})
