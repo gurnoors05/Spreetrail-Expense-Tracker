@@ -162,4 +162,11 @@ class ImportBatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ImportBatch
-        fields = ('id', 'file_name', 'uploaded_at', 'status', 'anomalies')
+        fields = ('id', 'file_name', 'timestamp', 'anomalies')
+
+from core.models import Settlement
+
+class SettlementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Settlement
+        fields = '__all__'

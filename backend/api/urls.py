@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, CurrentUserView, UserListView, GroupViewSet, GroupMembershipViewSet, ExpenseViewSet, ImportBatchViewSet, ImportAnomalyViewSet
+from .views import RegisterView, CurrentUserView, UserListView, GroupViewSet, GroupMembershipViewSet, ExpenseViewSet, ImportBatchViewSet, ImportAnomalyViewSet, SettlementViewSet
 
 router = DefaultRouter()
 router.register(r'groups', GroupViewSet)
@@ -9,6 +9,7 @@ router.register(r'memberships', GroupMembershipViewSet)
 router.register(r'expenses', ExpenseViewSet)
 router.register(r'import', ImportBatchViewSet, basename='import')
 router.register(r'anomalies', ImportAnomalyViewSet, basename='anomalies')
+router.register(r'settlements', SettlementViewSet)
 
 urlpatterns = [
     # Auth

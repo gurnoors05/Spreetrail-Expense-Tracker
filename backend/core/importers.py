@@ -25,21 +25,37 @@ class CSVImporter:
         
         # Read file
         reader = csv.DictReader(codecs.iterdecode(file_obj, 'utf-8'))
+        rows = list(reader)
         
-        for idx, row in enumerate(reader):
+        for idx, row in enumerate(rows):
             row_num = idx + 2 # +1 for 0-index, +1 for header
-            self.process_row(batch, row_num, row)
+            
+            # Look ahead for next valid date to help resolve ambiguous dates
+            next_valid_date = None
+            for j in range(idx + 1, len(rows)):
+                rd = rows[j].get('date', '').strip()
+                try:
+                    next_valid_date = datetime.strptime(rd, "%d-%m-%Y").date()
+                    break
+                except:
+                    try:
+                        next_valid_date = datetime.strptime(rd, "%m-%d-%Y").date()
+                        break
+                    except:
+                        pass
+                        
+            self.process_row(batch, row_num, row, next_valid_date)
             
         return batch
 
-    def process_row(self, batch: ImportBatch, row_num: int, row: dict):
+    def process_row(self, batch: ImportBatch, row_num: int, row: dict, next_valid_date=None):
         """
         Processes a single row, running it through the pipeline of anomaly detectors.
         """
         raw_date = row.get('date', '').strip()
         
         # 1. Date Format Detector
-        parsed_date, date_anomaly = self.parse_flexible_date(raw_date, row_num)
+        parsed_date, date_anomaly = self.parse_flexible_date(raw_date, row_num, next_valid_date)
         
         if date_anomaly:
             ImportAnomaly.objects.create(
@@ -94,9 +110,15 @@ class CSVImporter:
         # 6. Settlement Logged as Expense
         split_type = row.get('split_type', '').strip()
         split_with_raw = row.get('split_with', '').strip()
+        desc_lower = row.get('description', '').strip().lower()
         
-        if not split_type and split_with_raw and ';' not in split_with_raw:
-            # Looks like a settlement
+        is_settlement = False
+        if split_type == 'settlement' or 'settlement' in desc_lower or 'deposit' in desc_lower:
+            is_settlement = True
+        elif not split_type and split_with_raw and ';' not in split_with_raw:
+            is_settlement = True
+            
+        if is_settlement:
             payee, payee_err = self.normalize_member_name(split_with_raw)
             if payee:
                 self._create_anomaly(batch, row_num, 'Settlement Logged as Expense', f'Converted to Settlement from {payer.username} to {payee.username}.', 'auto_applied')
@@ -111,18 +133,21 @@ class CSVImporter:
                 return
 
         # 7. Duplicates
+        import difflib
         description = row.get('description', '').strip()
         possible_dups = Expense.objects.filter(
             group=self.group, date=parsed_date, status='active'
-        ).filter(description__icontains=description[:10])
+        )
         
         for dup in possible_dups:
-            if dup.amount == final_amount and dup.paid_by == payer:
-                self._create_anomaly(batch, row_num, 'Exact Duplicate', f"Matches exact expense: {dup.description}", 'auto_applied', 'Discarded')
-                return
-            else:
-                self._create_anomaly(batch, row_num, 'Conflicting Duplicate', f"Similar event '{dup.description}' has different amount or payer.", 'pending')
-                return
+            sim = difflib.SequenceMatcher(None, description.lower(), dup.description.lower()).ratio()
+            if sim > 0.8:
+                if dup.amount == final_amount and dup.paid_by == payer:
+                    self._create_anomaly(batch, row_num, 'Exact Duplicate', f"Matches exact expense: {dup.description}", 'auto_applied', 'Discarded')
+                    return
+                else:
+                    self._create_anomaly(batch, row_num, 'Conflicting Duplicate', f"Similar event '{dup.description}' has different amount or payer.", 'pending')
+                    return
 
         # 8. Split Type / Details Mismatch
         split_details_raw = row.get('split_details', '').strip()
@@ -243,7 +268,7 @@ class CSVImporter:
 
         return None, f"Could not match user '{raw_name}' to any existing member."
 
-    def parse_flexible_date(self, raw_date_str: str, row_num: int):
+    def parse_flexible_date(self, raw_date_str: str, row_num: int, next_valid_date=None):
         """
         Anomaly Detector: Inconsistent Date Formats
         Expects chronological order to resolve ambiguous dates like 'Mar-14' or '04-05-2026'.
@@ -252,22 +277,33 @@ class CSVImporter:
         if not raw_date_str:
             return None, "Missing date"
 
-        # Try standard DD-MM-YYYY
-        try:
-            dt = datetime.strptime(raw_date_str, "%d-%m-%Y").date()
-            # If it's something like 04-05-2026, it could mean May 4 or April 5.
-            # In Python, %d-%m-%Y parses '04-05-2026' as May 4. 
-            # But let's check chronological consistency.
-            if self.last_resolved_date:
-                # If standard parsing puts it before the last resolved date, maybe it's MM-DD-YYYY
-                if dt < self.last_resolved_date:
-                    alt_dt = datetime.strptime(raw_date_str, "%m-%d-%Y").date()
-                    if alt_dt >= self.last_resolved_date:
-                        return alt_dt, None
-            return dt, None
-        except ValueError:
-            pass
+        # Try standard formats
+        dt1 = None
+        dt2 = None
+        try: dt1 = datetime.strptime(raw_date_str, "%d-%m-%Y").date()
+        except: pass
+        try: dt2 = datetime.strptime(raw_date_str, "%m-%d-%Y").date()
+        except: pass
+
+        if dt1 and dt2 and dt1 != dt2:
+            # Ambiguous: e.g. 04-05-2026 could be May 4 or Apr 5
+            valid_dt1 = True
+            valid_dt2 = True
             
+            if self.last_resolved_date:
+                if dt1 < self.last_resolved_date: valid_dt1 = False
+                if dt2 < self.last_resolved_date: valid_dt2 = False
+                
+            if next_valid_date:
+                if dt1 > next_valid_date: valid_dt1 = False
+                if dt2 > next_valid_date: valid_dt2 = False
+                
+            if valid_dt1 and not valid_dt2: return dt1, None
+            if valid_dt2 and not valid_dt1: return dt2, None
+            
+        if dt1: return dt1, None
+        if dt2: return dt2, None
+
         # Try Mar-14 (Mon-DD)
         try:
             # We don't have a year.
@@ -277,8 +313,9 @@ class CSVImporter:
                 year = self.last_resolved_date.year
                 inferred_dt = parsed_no_year.replace(year=year).date()
                 if inferred_dt < self.last_resolved_date:
-                    # Maybe it's next year?
                     inferred_dt_next = parsed_no_year.replace(year=year + 1).date()
+                    if next_valid_date and inferred_dt_next > next_valid_date:
+                        return inferred_dt, None
                     return inferred_dt_next, None
                 return inferred_dt, None
             else:
@@ -286,5 +323,7 @@ class CSVImporter:
                 return parsed_no_year.replace(year=2026).date(), None
         except ValueError:
             pass
+            
+        return None, f"Could not parse date format: {raw_date_str}"
             
         return None, f"Could not parse date format: {raw_date_str}"

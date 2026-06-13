@@ -101,11 +101,12 @@ function UserSelect({ allUsers, value, onChange, existingIds = [] }) {
 // ── Main page ────────────────────────────────────────────
 export default function GroupDetailPage() {
   const { id } = useParams();
-  const [group,    setGroup]    = useState(null);
-  const [balances, setBalances] = useState(null);
-  const [allUsers, setAllUsers] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [tab,      setTab]      = useState('members');
+  const [group,       setGroup]       = useState(null);
+  const [balances,    setBalances]    = useState(null);
+  const [settlements, setSettlements] = useState([]);
+  const [allUsers,    setAllUsers]    = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [tab,         setTab]         = useState('members');
 
   // Add member form
   const [selectedUserId, setSelectedUserId] = useState(null);
@@ -145,8 +146,12 @@ export default function GroupDetailPage() {
   };
 
   const load = () => {
-    Promise.all([groupsApi.detail(id), groupsApi.balances(id)])
-      .then(([g, b]) => { setGroup(g.data); setBalances(b.data); })
+    Promise.all([
+      groupsApi.detail(id), 
+      groupsApi.balances(id), 
+      import('../api').then(m => m.settlementsApi.list(id))
+    ])
+      .then(([g, b, s]) => { setGroup(g.data); setBalances(b.data); setSettlements(s.data); })
       .finally(() => setLoading(false));
   };
 
@@ -184,7 +189,7 @@ export default function GroupDetailPage() {
   if (!group) return <p style={{ color: 'var(--danger)' }}>Group not found.</p>;
 
   const simplifiedDebts = balances?.simplified_debts || [];
-  const TABS = ['members', 'balances', 'add member'];
+  const TABS = ['members', 'balances', 'settlements', 'add member'];
 
   return (
     <div style={{ maxWidth: 860 }}>
@@ -384,6 +389,55 @@ export default function GroupDetailPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Settlements Tab */}
+      {tab === 'settlements' && (
+        <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Date</th><th>Paid By</th><th>Paid To</th><th style={{ textAlign: 'right' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {settlements.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No settlements recorded yet.
+                  </td>
+                </tr>
+              ) : settlements.map(s => {
+                const fromName = allUsers.find(u => u.id === s.paid_by)?.username || `User ${s.paid_by}`;
+                const toName   = allUsers.find(u => u.id === s.paid_to)?.username || `User ${s.paid_to}`;
+                return (
+                  <tr key={s.id}>
+                    <td style={{ color: 'var(--text-secondary)' }}>{s.date}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-glass-h)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--brand-light)' }}>
+                          {fromName[0].toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600 }}>{fromName}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-glass-h)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>
+                          {toName[0].toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600 }}>{toName}</span>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--warning)' }}>
+                      {fmt(s.amount)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

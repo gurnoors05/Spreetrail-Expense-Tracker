@@ -131,6 +131,16 @@ class ImportAnomalyViewSet(viewsets.ModelViewSet):
         
         # Note: In the real app, this endpoint would accept the corrected payload 
         # and trigger the creation of the Expense + ExpenseSplits. 
-        # For the assignment skeleton, updating the status to resolved is the primary requirement.
-        
         return Response({"message": "Anomaly resolved successfully."})
+
+from core.models import Settlement
+from .serializers import SettlementSerializer
+
+class SettlementViewSet(viewsets.ModelViewSet):
+    queryset = Settlement.objects.all()
+    serializer_class = SettlementSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user_groups = Group.objects.filter(memberships__user=self.request.user)
+        return self.queryset.filter(group__in=user_groups)

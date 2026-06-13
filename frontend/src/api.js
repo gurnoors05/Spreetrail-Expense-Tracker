@@ -90,4 +90,9 @@ export const anomaliesApi = {
   resolve: (id, payload) => api.post(`/anomalies/${id}/resolve/`, payload),
 };
 
+// ─── Settlements ─────────────────────────────────────────
+export const settlementsApi = {
+  list: (groupId) => api.get(`/settlements/?group=${groupId}`),
+};
+
 export default api;
