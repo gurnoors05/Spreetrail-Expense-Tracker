@@ -11,7 +11,7 @@ specific cases where the AI's output was incorrect and how it was caught and fix
 
 ## Live Deployment
 
-- **Frontend (Vercel):** [spreetrail-expense-tracker.vercel.app](https://spreetrail-expense-tracker.vercel.app/)
+- **Frontend (Vercel):** [https://YOUR-FRONTEND-URL.vercel.app](https://spreetrail-expense-tracker.vercel.app/)
 - **Backend API (Render):** https://spreetrail-expense-tracker-1.onrender.com
 - **Django Admin:** https://spreetrail-expense-tracker-1.onrender.com/admin/
 
@@ -19,15 +19,15 @@ specific cases where the AI's output was incorrect and how it was caught and fix
 
 All accounts (including admin) use the password: `1234`
 
-| Username | Role / Notes |
-|----------|--------------|
-| aisha    | Flatmate since Feb — currently owed the most |
-| rohan    | Flatmate since Feb |
-| priya    | Flatmate since Feb |
-| meera    | Flatmate Feb–Mar (left 2026-03-31) — excluded from post-March expenses |
-| sam      | Joined mid-April (2026-04-08) |
-| dev      | Trip guest — registered user, NOT a group member (appears in Goa-trip expense splits only) |
-| admin    | Django admin superuser (`/admin/` access only) |
+| Username | Password | Role / Notes |
+|----------|----------|--------------|
+| aisha    | 1234     | Flatmate since Feb — currently owed the most |
+| rohan    | 1234     | Flatmate since Feb |
+| priya    | 1234     | Flatmate since Feb |
+| meera    | 1234     | Flatmate Feb–Mar (left 2026-03-31) — excluded from post-March expenses |
+| sam      | 1234     | Joined mid-April (2026-04-08) |
+| dev      | 1234     | Trip guest — registered user, NOT a group member (appears in Goa-trip expense splits only) |
+| admin    | 1234     | Django admin superuser (`/admin/` access only) |
 
 The "Flatmates" group is pre-populated with the full CSV import already processed (Batch #1 on
 the deployed instance), including all 6 anomaly resolutions. Log in as any user above to see their
