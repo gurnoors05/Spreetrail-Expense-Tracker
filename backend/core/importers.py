@@ -81,14 +81,14 @@ class CSVImporter:
             
         # Zero-amount (Anomaly 12)
         if parsed_amount == Decimal('0.00'):
-            self._create_anomaly(batch, row_num, 'Zero Amount', 'Expense has a 0.00 amount. Skipping from balances.', 'auto_applied')
+            self._create_anomaly(batch, row_num, 'Zero Amount', 'Expense has a 0.00 amount. Skipping from balances.', 'auto_applied', 'Skipped')
             return
             
         # 3. Currency (Missing Currency -> INR)
         raw_currency = row.get('currency', '').strip()
         currency, currency_anomaly = self.parse_currency(raw_currency)
         if currency_anomaly:
-            self._create_anomaly(batch, row_num, 'Missing Currency', currency_anomaly, 'auto_applied')
+            self._create_anomaly(batch, row_num, 'Missing Currency', currency_anomaly, 'auto_applied', 'Defaulted to INR')
             
         # 4. Normalize Member Names & Missing Payer
         raw_payer = row.get('paid_by', '').strip()
@@ -104,7 +104,7 @@ class CSVImporter:
         if currency == 'USD':
             exchange_rate_used = Decimal('83.50')
             final_amount = (parsed_amount * exchange_rate_used).quantize(Decimal('0.01'))
-            self._create_anomaly(batch, row_num, 'Foreign Currency', f'Converted {parsed_amount} USD to {final_amount} INR at 83.50.', 'auto_applied')
+            self._create_anomaly(batch, row_num, 'Foreign Currency', f'Converted {parsed_amount} USD to {final_amount} INR at 83.50.', 'auto_applied', 'Applied 83.50 FX rate')
             currency = 'INR'
 
         # 6. Settlement Logged as Expense
@@ -164,10 +164,15 @@ class CSVImporter:
                 self._create_anomaly(batch, row_num, 'Non-member in Split', f"{name} is not a known user.", 'pending')
                 return
             
-            is_active = GroupMembership.objects.filter(group=self.group, user=u, joined_date__lte=parsed_date).exclude(left_date__lt=parsed_date).exists()
-            if not is_active:
-                self._create_anomaly(batch, row_num, 'Stale/Inactive Membership', f"{u.username} was not active on {parsed_date}.", 'auto_applied', f"Excluded {u.username}")
+            has_membership = GroupMembership.objects.filter(group=self.group, user=u).exists()
+            if has_membership:
+                is_active = GroupMembership.objects.filter(group=self.group, user=u, joined_date__lte=parsed_date).exclude(left_date__lt=parsed_date).exists()
+                if not is_active:
+                    self._create_anomaly(batch, row_num, 'Stale/Inactive Membership', f"{u.username} was not active on {parsed_date}.", 'auto_applied', f"Excluded {u.username}")
+                else:
+                    valid_users.append(u)
             else:
+                # User has no membership at all (e.g., non-member friends like Dev), include them normally
                 valid_users.append(u)
 
         if not valid_users:

@@ -67,19 +67,22 @@ class ExpenseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"split_details": "Split details are required."})
 
         # Validate that all users in split_details are active members of the group on 'date'
+        # UNLESS they have NO membership at all (e.g. non-member friends like Dev)
         users_in_split = [sd['user'] for sd in split_details]
-        active_memberships = GroupMembership.objects.filter(
-            group=group,
-            user__in=users_in_split,
-            joined_date__lte=date
-        ).exclude(left_date__lt=date)
         
-        active_user_ids = set(am.user.id for am in active_memberships)
         for user in users_in_split:
-            if user.id not in active_user_ids:
-                raise serializers.ValidationError({
-                    "split_details": f"User {user.username} was not an active member of the group on {date}."
-                })
+            has_membership = GroupMembership.objects.filter(group=group, user=user).exists()
+            if has_membership:
+                is_active = GroupMembership.objects.filter(
+                    group=group,
+                    user=user,
+                    joined_date__lte=date
+                ).exclude(left_date__lt=date).exists()
+                
+                if not is_active:
+                    raise serializers.ValidationError({
+                        "split_details": f"User {user.username} was not an active member of the group on {date}."
+                    })
 
         # Validate split logic
         if split_type == 'unequal':
