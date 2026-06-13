@@ -109,10 +109,40 @@ export default function GroupDetailPage() {
 
   // Add member form
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [addJoined,      setAddJoined]      = useState('');
+  const [addJoined,      setAddJoined]      = useState('');   // intentionally empty — user must pick
   const [addErr,         setAddErr]         = useState('');
   const [addSaving,      setAddSaving]      = useState(false);
   const [addSuccess,     setAddSuccess]     = useState('');
+
+  // Inline edit state
+  const [editingId,    setEditingId]    = useState(null);  // membership id being edited
+  const [editJoined,   setEditJoined]   = useState('');
+  const [editLeft,     setEditLeft]     = useState('');
+  const [editSaving,   setEditSaving]   = useState(false);
+  const [editErr,      setEditErr]      = useState('');
+
+  const startEdit = (m) => {
+    setEditingId(m.id);
+    setEditJoined(m.joined_date || '');
+    setEditLeft(m.left_date || '');
+    setEditErr('');
+  };
+  const cancelEdit = () => { setEditingId(null); setEditErr(''); };
+
+  const saveEdit = async (membershipId) => {
+    setEditSaving(true); setEditErr('');
+    try {
+      await membershipApi.update(membershipId, {
+        joined_date: editJoined || null,
+        left_date:   editLeft   || null,
+      });
+      setEditingId(null);
+      load();
+    } catch (err) {
+      const d = err.response?.data;
+      setEditErr(d?.joined_date?.[0] || d?.left_date?.[0] || d?.non_field_errors?.[0] || JSON.stringify(d));
+    } finally { setEditSaving(false); }
+  };
 
   const load = () => {
     Promise.all([groupsApi.detail(id), groupsApi.balances(id)])
@@ -206,26 +236,96 @@ export default function GroupDetailPage() {
       {tab === 'members' && (
         <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
           <table className="tbl">
-            <thead><tr><th>Member</th><th>Joined</th><th>Left</th><th>Status</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Member</th><th>Joined</th><th>Left</th><th>Status</th>
+                <th style={{ width: 80, textAlign: 'right' }}>Edit</th>
+              </tr>
+            </thead>
             <tbody>
               {group.memberships?.map(m => (
-                <tr key={m.id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), var(--accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: '#fff' }}>
-                        {m.user_detail?.username?.[0]?.toUpperCase()}
+                editingId === m.id ? (
+                  // ── Inline edit row ──────────────────────────────
+                  <tr key={m.id} style={{ background: 'rgba(139,92,246,0.06)' }}>
+                    <td colSpan={5} style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+                        {/* Avatar + name (read-only) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 120 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), var(--accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, color: '#fff' }}>
+                            {m.user_detail?.username?.[0]?.toUpperCase()}
+                          </div>
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{m.user_detail?.username}</span>
+                        </div>
+                        {/* Joined date */}
+                        <div className="form-group" style={{ flex: 1, minWidth: 160 }}>
+                          <label className="form-label">Joined Date</label>
+                          <input
+                            id={`edit-joined-${m.id}`}
+                            className="form-input"
+                            type="date"
+                            value={editJoined}
+                            onChange={e => setEditJoined(e.target.value)}
+                            required
+                          />
+                        </div>
+                        {/* Left date */}
+                        <div className="form-group" style={{ flex: 1, minWidth: 160 }}>
+                          <label className="form-label">Left Date <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(blank = still active)</span></label>
+                          <input
+                            id={`edit-left-${m.id}`}
+                            className="form-input"
+                            type="date"
+                            value={editLeft}
+                            onChange={e => setEditLeft(e.target.value)}
+                            min={editJoined || undefined}
+                          />
+                        </div>
+                        {/* Actions */}
+                        <div style={{ display: 'flex', gap: 8, paddingBottom: 2 }}>
+                          <button
+                            id={`save-edit-${m.id}`}
+                            className="btn btn-primary btn-sm"
+                            onClick={() => saveEdit(m.id)}
+                            disabled={editSaving || !editJoined}
+                          >
+                            {editSaving ? <span className="spinner"/> : '✓ Save'}
+                          </button>
+                          <button className="btn btn-secondary btn-sm" onClick={cancelEdit}>Cancel</button>
+                        </div>
                       </div>
-                      <span style={{ fontWeight: 600 }}>{m.user_detail?.username}</span>
-                    </div>
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{m.joined_date || '—'}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{m.left_date || '—'}</td>
-                  <td>
-                    <span className={`badge ${m.left_date ? 'badge-red' : 'badge-green'}`}>
-                      {m.left_date ? 'Inactive' : 'Active'}
-                    </span>
-                  </td>
-                </tr>
+                      {editErr && <p className="form-error" style={{ marginTop: 8 }}>⚠ {editErr}</p>}
+                    </td>
+                  </tr>
+                ) : (
+                  // ── Normal read row ──────────────────────────────
+                  <tr key={m.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--brand), var(--accent))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: '#fff' }}>
+                          {m.user_detail?.username?.[0]?.toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 600 }}>{m.user_detail?.username}</span>
+                      </div>
+                    </td>
+                    <td style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{m.joined_date || '—'}</td>
+                    <td style={{ color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{m.left_date || '—'}</td>
+                    <td>
+                      <span className={`badge ${m.left_date ? 'badge-red' : 'badge-green'}`}>
+                        {m.left_date ? 'Inactive' : 'Active'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        id={`edit-member-${m.id}`}
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => startEdit(m)}
+                        title="Edit dates"
+                      >
+                        ✎ Edit
+                      </button>
+                    </td>
+                  </tr>
+                )
               ))}
             </tbody>
           </table>
