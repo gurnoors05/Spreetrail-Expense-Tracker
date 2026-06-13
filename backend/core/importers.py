@@ -238,6 +238,9 @@ class CSVImporter:
                 # Handle percentage/unequal splits provided in split_details
                 shares = []
                 if split_details_raw:
+                    parsed_shares = []
+                    total_shares_val = Decimal('0.00')
+                    
                     for part in split_details_raw.split(';'):
                         if not part.strip(): continue
                         match = re.search(r'([a-zA-Z0-9_]+)[^\d]*([\d\.]+)', part)
@@ -246,13 +249,21 @@ class CSVImporter:
                             val = Decimal(match.group(2))
                             u = next((u for u in unique_users if u.username.lower() == uname), None)
                             if u:
-                                if split_type == 'percentage':
-                                    share_amt = (final_amount * (val / Decimal('100.00'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
-                                    shares.append({'user': u, 'amount': share_amt})
-                                elif split_type == 'unequal':
-                                    shares.append({'user': u, 'amount': val})
+                                parsed_shares.append({'user': u, 'val': val})
+                                if split_type == 'share':
+                                    total_shares_val += val
                                     
-                if shares:
+                    for ps in parsed_shares:
+                        u = ps['user']
+                        val = ps['val']
+                        if split_type == 'percentage':
+                            share_amt = (final_amount * (val / Decimal('100.00'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+                            shares.append({'user': u, 'amount': share_amt})
+                        elif split_type == 'unequal':
+                            shares.append({'user': u, 'amount': val})
+                        elif split_type == 'share':
+                            share_amt = (final_amount * (val / total_shares_val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+                            shares.append({'user': u, 'amount': share_amt})
                     # Distribute remainder
                     total_calc = sum(s['amount'] for s in shares)
                     remainder = final_amount - total_calc
