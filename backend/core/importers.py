@@ -53,7 +53,7 @@ class CSVImporter:
         raw_date = row.get('date', '').strip()
         
         # 1. Date Format Detector
-        parsed_date, date_anomaly = self.parse_flexible_date(raw_date, row_num, next_valid_date)
+        parsed_date, date_anomaly, date_warning = self.parse_flexible_date(raw_date, row_num, next_valid_date)
         
         if date_anomaly:
             ImportAnomaly.objects.create(
@@ -66,6 +66,9 @@ class CSVImporter:
             )
             # We skip creating the expense for now if we can't parse the date
             return
+            
+        if date_warning:
+            self._create_anomaly(batch, row_num, 'Ambiguous Date', date_warning, 'auto_applied', 'Resolved chronologically')
             
         if parsed_date:
             self.last_resolved_date = parsed_date
@@ -281,6 +284,10 @@ class CSVImporter:
 
             for s in shares:
                 ExpenseSplit.objects.create(expense=expense, user=s['user'], share_amount=s['amount'])
+                
+            if len(unique_users) != total_logical_shares and split_type in ('equal', ''):
+                expense.split_type = 'share'
+                expense.save()
 
     def _create_anomaly(self, batch, row_num, anomaly_type, description, status='pending', action_taken='Flagged for manual review.'):
         return ImportAnomaly.objects.create(
@@ -332,10 +339,10 @@ class CSVImporter:
         """
         Anomaly Detector: Inconsistent Date Formats
         Expects chronological order to resolve ambiguous dates like 'Mar-14' or '04-05-2026'.
-        Returns (resolved_date, error_string)
+        Returns (resolved_date, error_string, warning_string)
         """
         if not raw_date_str:
-            return None, "Missing date"
+            return None, "Missing date", None
 
         # Try standard formats
         dt1 = None
@@ -358,8 +365,8 @@ class CSVImporter:
                 if dt1 > next_valid_date: valid_dt1 = False
                 if dt2 > next_valid_date: valid_dt2 = False
                 
-            if valid_dt1 and not valid_dt2: return dt1, None
-            if valid_dt2 and not valid_dt1: return dt2, None
+            if valid_dt1 and not valid_dt2: return dt1, None, None
+            if valid_dt2 and not valid_dt1: return dt2, None, None
             
             # If both are valid or both are invalid (e.g. slight out of order rows), minimize chronological distance
             def dist(d):
@@ -367,11 +374,12 @@ class CSVImporter:
                 d2 = abs((d - next_valid_date).days) if next_valid_date else 0
                 return d1 + d2
                 
-            if dist(dt1) <= dist(dt2): return dt1, None
-            else: return dt2, None
+            resolved_dt = dt1 if dist(dt1) <= dist(dt2) else dt2
+            warning_msg = f"Ambiguous date '{raw_date_str}'. Resolved to {resolved_dt} via sequence policy."
+            return resolved_dt, None, warning_msg
             
-        if dt1: return dt1, None
-        if dt2: return dt2, None
+        if dt1: return dt1, None, None
+        if dt2: return dt2, None, None
 
         # Try Mar-14 (Mon-DD)
         try:
@@ -384,15 +392,13 @@ class CSVImporter:
                 if inferred_dt < self.last_resolved_date:
                     inferred_dt_next = parsed_no_year.replace(year=year + 1).date()
                     if next_valid_date and inferred_dt_next > next_valid_date:
-                        return inferred_dt, None
-                    return inferred_dt_next, None
-                return inferred_dt, None
+                        return inferred_dt, None, None
+                    return inferred_dt_next, None, None
+                return inferred_dt, None, None
             else:
                 # We have no anchor, fallback to 2026 as per scope
-                return parsed_no_year.replace(year=2026).date(), None
+                return parsed_no_year.replace(year=2026).date(), None, None
         except ValueError:
             pass
             
-        return None, f"Could not parse date format: {raw_date_str}"
-            
-        return None, f"Could not parse date format: {raw_date_str}"
+        return None, f"Could not parse date format: {raw_date_str}", None
