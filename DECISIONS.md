@@ -41,3 +41,12 @@
 ## 10. Ambiguous Dates
 **Decision:** We assume the CSV is ordered chronologically. For ambiguous dates (e.g., `04-05-2026` or missing-year `Mar-14`), we pick the interpretation that keeps the row's date >= the previous row's resolved date and <= the next row's resolved date.
 **Rationale:** Example: `Mar-14` between Mar 12 and Mar 15 resolves to Mar 14 of 2026. `04-05-2026` between Mar 28 and Apr 2 resolves to Apr 5 (`05-04-2026`). If no interpretation satisfies the sequence, it's flagged as an anomaly.
+
+## 11. Member Name Matching in CSV Importer
+**Decision:** The importer matches CSV `paid_by` / `split_with` values to `User.username` using two passes:
+1. **Exact case-insensitive match** — `'Aisha'` → `username='aisha'`, `'rohan '` → `username='rohan'`
+2. **First-token fallback** — `'Priya S'` → first token `'priya'` → `username='priya'`
+
+If neither pass finds a user, it flags a `Non-member in Split` anomaly (e.g., `Kabir` who is not in the system).
+**Consequence:** Users **must be pre-created** with the correct lowercase first-name username before importing the CSV. No fuzzy or phonetic matching is performed.
+**Test account usernames to use:** `aisha`, `rohan`, `priya`, `meera`, `sam`, `dev`

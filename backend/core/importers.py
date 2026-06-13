@@ -197,13 +197,28 @@ class CSVImporter:
         return raw_currency.upper(), None
 
     def normalize_member_name(self, raw_name: str):
+        """
+        Anomaly Detector: Inconsistent Name Casing/Spacing
+        Matching priority:
+          1. Case-insensitive exact match on username (handles 'Aisha', 'rohan ', 'priya')
+          2. Case-insensitive match on first token only (handles 'Priya S' -> 'priya')
+        If neither matches, the name is flagged as a non-member anomaly.
+        """
         if not raw_name:
             return None, "Payer is missing."
         clean_name = raw_name.strip().lower()
-        # Find active member by username (case insensitive)
+
+        # Pass 1: exact iexact username match
         user = User.objects.filter(username__iexact=clean_name).first()
         if user:
             return user, None
+
+        # Pass 2: first-token match (e.g. 'Priya S' -> 'priya')
+        first_token = clean_name.split()[0] if clean_name.split() else clean_name
+        user = User.objects.filter(username__iexact=first_token).first()
+        if user:
+            return user, None
+
         return None, f"Could not match user '{raw_name}' to any existing member."
 
     def parse_flexible_date(self, raw_date_str: str, row_num: int):
