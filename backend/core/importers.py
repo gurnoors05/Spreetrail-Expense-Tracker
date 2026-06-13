@@ -54,8 +54,60 @@ class CSVImporter:
         if parsed_date:
             self.last_resolved_date = parsed_date
             
-        # TODO: Implement rest of pipeline (duplicates, payer, amounts, FX, splits)
-        # We will build these detectors one by one.
+        # 2. Number Formatting (Amount)
+        raw_amount = row.get('amount', '').strip()
+        parsed_amount, amount_anomaly = self.parse_amount(raw_amount, row_num)
+        if amount_anomaly:
+            self._create_anomaly(batch, row_num, 'Invalid Amount', amount_anomaly)
+            return
+            
+        # Zero-amount (Anomaly 12)
+        if parsed_amount == Decimal('0.00'):
+            self._create_anomaly(batch, row_num, 'Zero Amount', 'Expense has a 0.00 amount. Skipping from balances.', 'auto_applied')
+            return
+            
+        # 3. Currency (Missing Currency -> INR)
+        raw_currency = row.get('currency', '').strip()
+        currency, currency_anomaly = self.parse_currency(raw_currency)
+        if currency_anomaly:
+            self._create_anomaly(batch, row_num, 'Missing Currency', currency_anomaly, 'auto_applied')
+            
+        # 4. Normalize Member Names & Missing Payer
+        raw_payer = row.get('paid_by', '').strip()
+        payer, payer_anomaly = self.normalize_member_name(raw_payer)
+        if payer_anomaly:
+            self._create_anomaly(batch, row_num, 'Missing/Unknown Payer', payer_anomaly)
+            return
+
+    def _create_anomaly(self, batch, row_num, anomaly_type, description, status='pending', action_taken='Flagged for manual review.'):
+        return ImportAnomaly.objects.create(
+            import_batch=batch, row_reference=f"Row {row_num}", anomaly_type=anomaly_type,
+            description=description, action_taken=action_taken, status=status
+        )
+
+    def parse_amount(self, raw_amount: str, row_num: int):
+        if not raw_amount:
+            return None, "Amount is empty"
+        clean_amount = raw_amount.replace('"', '').replace(',', '').strip()
+        try:
+            return Decimal(clean_amount), None
+        except:
+            return None, f"Could not parse amount: {raw_amount}"
+
+    def parse_currency(self, raw_currency: str):
+        if not raw_currency:
+            return 'INR', "Currency was empty. Defaulted to INR."
+        return raw_currency.upper(), None
+
+    def normalize_member_name(self, raw_name: str):
+        if not raw_name:
+            return None, "Payer is missing."
+        clean_name = raw_name.strip().lower()
+        # Find active member by username (case insensitive)
+        user = User.objects.filter(username__iexact=clean_name).first()
+        if user:
+            return user, None
+        return None, f"Could not match user '{raw_name}' to any existing member."
 
     def parse_flexible_date(self, raw_date_str: str, row_num: int):
         """
