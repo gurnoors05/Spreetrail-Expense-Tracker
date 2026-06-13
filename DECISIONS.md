@@ -29,3 +29,15 @@
 ## 7. Sam's Deposit Treatment
 **Decision:** Sam paying Aisha a ₹15,000 deposit is treated as a `Settlement` from Sam to Aisha, not an expense.
 **Rationale:** This was a direct transfer to balance out rent obligations, functionally identical to paying back a debt. It does not need to be split among other members.
+
+## 8. Negative Amounts
+**Decision:** Negative expenses are processed through the normal split pipeline; the sign is preserved through to `ExpenseSplit.share_amount`. We are not linking refunds back to original expenses via foreign key; they are independent rows.
+**Rationale:** This keeps the splitting engine simple and generic. Note: Balance calculations simply sum these signed `share_amounts` directly without extra logic.
+
+## 9. Percentages Not Summing to 100%
+**Decision:** Always flag as a pending `ImportAnomaly`. Never auto-normalize.
+**Rationale:** We cannot guess user intent. The UI will offer a choice between (a) proportionally rescaling all percentages so they sum to 100% (showing recalculated numbers), or (b) letting the user manually enter corrected percentages.
+
+## 10. Ambiguous Dates
+**Decision:** We assume the CSV is ordered chronologically. For ambiguous dates (e.g., `04-05-2026` or missing-year `Mar-14`), we pick the interpretation that keeps the row's date >= the previous row's resolved date and <= the next row's resolved date.
+**Rationale:** Example: `Mar-14` between Mar 12 and Mar 15 resolves to Mar 14 of the current year context. `04-05-2026` between Mar 28 and Apr 2 resolves to Apr 5 (`05-04-2026`). If no interpretation satisfies the sequence, it's flagged as an anomaly.
