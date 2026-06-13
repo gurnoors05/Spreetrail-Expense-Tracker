@@ -79,6 +79,34 @@ class CSVImporter:
             self._create_anomaly(batch, row_num, 'Missing/Unknown Payer', payer_anomaly)
             return
 
+        # 5. Foreign Currency (USD -> INR)
+        original_amount, original_currency = parsed_amount, currency
+        final_amount = parsed_amount
+        exchange_rate_used = None
+        if currency == 'USD':
+            exchange_rate_used = Decimal('83.50')
+            final_amount = (parsed_amount * exchange_rate_used).quantize(Decimal('0.01'))
+            self._create_anomaly(batch, row_num, 'Foreign Currency', f'Converted {parsed_amount} USD to {final_amount} INR at 83.50.', 'auto_applied')
+            currency = 'INR'
+
+        # 6. Settlement Logged as Expense
+        split_type = row.get('split_type', '').strip()
+        split_with_raw = row.get('split_with', '').strip()
+        
+        if not split_type and split_with_raw and ';' not in split_with_raw:
+            # Looks like a settlement
+            payee, payee_err = self.normalize_member_name(split_with_raw)
+            if payee:
+                self._create_anomaly(batch, row_num, 'Settlement Logged as Expense', f'Converted to Settlement from {payer.username} to {payee.username}.', 'auto_applied')
+                # For auto-applied settlements, we can create them immediately
+                Settlement.objects.create(
+                    group=self.group, paid_by=payer, paid_to=payee,
+                    amount=final_amount, date=parsed_date, note=row.get('notes', '')
+                )
+                return
+            else:
+                self._create_anomaly(batch, row_num, 'Settlement Logged as Expense', f'Missing payee: {split_with_raw}.', 'pending')
+                return
     def _create_anomaly(self, batch, row_num, anomaly_type, description, status='pending', action_taken='Flagged for manual review.'):
         return ImportAnomaly.objects.create(
             import_batch=batch, row_reference=f"Row {row_num}", anomaly_type=anomaly_type,
