@@ -107,6 +107,75 @@ class CSVImporter:
             else:
                 self._create_anomaly(batch, row_num, 'Settlement Logged as Expense', f'Missing payee: {split_with_raw}.', 'pending')
                 return
+
+        # 7. Duplicates
+        description = row.get('description', '').strip()
+        from django.db.models import Q
+        possible_dups = Expense.objects.filter(
+            group=self.group, date=parsed_date, status='active'
+        ).filter(description__icontains=description[:10])
+        
+        for dup in possible_dups:
+            if dup.amount == final_amount and dup.paid_by == payer:
+                self._create_anomaly(batch, row_num, 'Exact Duplicate', f"Matches exact expense: {dup.description}", 'auto_applied', 'Discarded')
+                return
+            else:
+                self._create_anomaly(batch, row_num, 'Conflicting Duplicate', f"Similar event '{dup.description}' has different amount or payer.", 'pending')
+                return
+
+        # 8. Split Type / Details Mismatch
+        split_details_raw = row.get('split_details', '').strip()
+        if split_type == 'equal' and split_details_raw:
+            self._create_anomaly(batch, row_num, 'Split Details Mismatch', f"split_type is 'equal' but details are provided: {split_details_raw}", 'pending')
+            return
+
+        # Parse split_with
+        split_with_names = [n.strip() for n in split_with_raw.split(';') if n.strip()]
+        valid_users = []
+        from core.models import GroupMembership
+        for name in split_with_names:
+            u, err = self.normalize_member_name(name)
+            if not u:
+                self._create_anomaly(batch, row_num, 'Non-member in Split', f"{name} is not a known user.", 'pending')
+                return
+            
+            is_active = GroupMembership.objects.filter(group=self.group, user=u, joined_date__lte=parsed_date).exclude(left_date__lt=parsed_date).exists()
+            if not is_active:
+                self._create_anomaly(batch, row_num, 'Stale/Inactive Membership', f"{u.username} was not active on {parsed_date}.", 'auto_applied', f"Excluded {u.username}")
+            else:
+                valid_users.append(u)
+
+        if not valid_users:
+            self._create_anomaly(batch, row_num, 'Empty Valid Split', "No active members found for split.", 'pending')
+            return
+
+        # 9. Percentage Sum Validation
+        if split_type == 'percentage' and split_details_raw:
+            import re
+            total_pct = Decimal('0')
+            for part in split_details_raw.split(';'):
+                match = re.search(r'([\d\.]+)', part)
+                if match:
+                    total_pct += Decimal(match.group(1))
+            if total_pct != Decimal('100'):
+                self._create_anomaly(batch, row_num, 'Percentage Sum Mismatch', f"Percentages sum to {total_pct}%, expected 100%.", 'pending')
+                return
+
+        # If it passed all and is equal split, create the Expense using the API Serializer logic
+        if split_type == 'equal':
+            from api.serializers import ExpenseSerializer
+            data = {
+                'group': self.group.id, 'description': description, 'date': parsed_date,
+                'paid_by': payer.id, 'amount': final_amount, 'original_amount': original_amount,
+                'original_currency': original_currency, 'exchange_rate_used': exchange_rate_used,
+                'split_type': split_type, 'notes': row.get('notes', ''),
+                'split_details': [{'user': u.id} for u in valid_users]
+            }
+            serializer = ExpenseSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+            else:
+                self._create_anomaly(batch, row_num, 'Validation Error', str(serializer.errors), 'pending')
     def _create_anomaly(self, batch, row_num, anomaly_type, description, status='pending', action_taken='Flagged for manual review.'):
         return ImportAnomaly.objects.create(
             import_batch=batch, row_reference=f"Row {row_num}", anomaly_type=anomaly_type,
