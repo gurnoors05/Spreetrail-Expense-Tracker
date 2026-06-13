@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { importApi, anomaliesApi, usersApi } from '../api';
+import { importApi, anomaliesApi, usersApi, groupsApi } from '../api';
 
 function AnomalyCard({ anomaly, onResolve, allUsers }) {
   const [saving, setSaving]   = useState(false);
@@ -54,8 +54,11 @@ function AnomalyCard({ anomaly, onResolve, allUsers }) {
                 <button className="btn btn-primary btn-sm" onClick={resolve} disabled={saving || !resData.split_details}>
                   {saving ? <span className="spinner"/> : 'Update'}
                 </button>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
-                    setResData({ action: 'equalize' }); setActionLabel('Equalized split');
+                <button className="btn btn-secondary btn-sm" onClick={async () => {
+                    setSaving(true);
+                    try { await anomaliesApi.resolve(anomaly.id, { action_taken: 'Equalized split', resolution_data: { action: 'equalize' } }); onResolve(); }
+                    catch(e) { alert(e.response?.data?.error || 'Resolution failed'); }
+                    finally { setSaving(false); }
                 }} disabled={saving}>Set to Equalize</button>
             </div>
         );
@@ -83,23 +86,30 @@ function AnomalyCard({ anomaly, onResolve, allUsers }) {
     if (anomaly.anomaly_type === 'Conflicting Duplicate') {
         return (
             <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-                <button className="btn btn-primary btn-sm" onClick={() => {
-                    setResData({ action: 'keep' }); setActionLabel('Confirmed new expense');
-                }} disabled={saving}>Set to Keep New</button>
-                <button className="btn btn-danger btn-sm" onClick={() => {
-                    setResData({ action: 'discard' }); setActionLabel('Discarded duplicate');
-                }} disabled={saving}>Set to Discard</button>
-                <button className="btn btn-primary btn-sm" onClick={resolve} disabled={saving || !resData.action}>Execute</button>
+                <button className="btn btn-primary btn-sm" onClick={async () => {
+                    setSaving(true);
+                    try { await anomaliesApi.resolve(anomaly.id, { action_taken: 'Confirmed new expense', resolution_data: { action: 'keep' } }); onResolve(); }
+                    catch(e) { alert(e.response?.data?.error || 'Resolution failed'); }
+                    finally { setSaving(false); }
+                }} disabled={saving}>Keep New</button>
+                <button className="btn btn-danger btn-sm" onClick={async () => {
+                    setSaving(true);
+                    try { await anomaliesApi.resolve(anomaly.id, { action_taken: 'Discarded duplicate', resolution_data: { action: 'discard' } }); onResolve(); }
+                    catch(e) { alert(e.response?.data?.error || 'Resolution failed'); }
+                    finally { setSaving(false); }
+                }} disabled={saving}>Discard</button>
             </div>
         );
     }
     if (anomaly.anomaly_type === 'Split Details Mismatch') {
         return (
             <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-                <button className="btn btn-primary btn-sm" onClick={() => {
-                    setResData({ action: 'force_equal' }); setActionLabel('Forced equal split');
-                }} disabled={saving}>Set Force Equal</button>
-                <button className="btn btn-primary btn-sm" onClick={resolve} disabled={saving || !resData.action}>Execute</button>
+                <button className="btn btn-primary btn-sm" onClick={async () => {
+                    setSaving(true);
+                    try { await anomaliesApi.resolve(anomaly.id, { action_taken: 'Forced equal split', resolution_data: { action: 'force_equal' } }); onResolve(); }
+                    catch(e) { alert(e.response?.data?.error || 'Resolution failed'); }
+                    finally { setSaving(false); }
+                }} disabled={saving}>Force Equal Split</button>
             </div>
         );
     }
@@ -151,9 +161,11 @@ export default function ImportPage() {
   const [success, setSuccess]     = useState('');
   const [allUsers, setAllUsers]   = useState([]);
   const [batches, setBatches]     = useState([]);
+  const [groups, setGroups]       = useState([]);
 
   useEffect(() => {
     usersApi.list().then(res => setAllUsers(res.data)).catch(console.error);
+    groupsApi.list().then(res => setGroups(res.data)).catch(console.error);
     if (groupId) {
       fetchBatches(groupId);
     }
@@ -215,9 +227,12 @@ export default function ImportPage() {
           <div className="card" style={{ padding: 28, marginBottom: 28 }}>
             <form onSubmit={upload} style={{ display:'flex', flexDirection:'column', gap: 16 }}>
               <div className="form-group">
-                <label className="form-label">Group ID</label>
-                <input id="import-group-id" className="form-input" type="number" value={groupId} onChange={e => setGroupId(e.target.value)} placeholder="Group ID" required />
-              </div>
+            <label className="form-label">Group</label>
+            <select id="import-group-id" className="form-input" value={groupId} onChange={e => setGroupId(e.target.value)} required>
+              <option value="">Select a Group...</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
               <div className="form-group">
                 <label className="form-label">CSV File</label>
                 <div style={{

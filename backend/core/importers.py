@@ -213,11 +213,19 @@ class CSVImporter:
                 status='active',
             )
 
-            n = len(valid_users)
+            # Group valid_users to handle folded memberships (e.g. Kabir folded into Dev)
+            from collections import defaultdict
+            user_counts = defaultdict(int)
+            for u in valid_users:
+                user_counts[u] += 1
+                
+            unique_users = list(user_counts.keys())
+            total_logical_shares = len(valid_users) # total logical members
+
             if split_type in ('equal', ''):
-                base = (final_amount / Decimal(n)).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
-                shares = [{'user': u, 'amount': base} for u in valid_users]
-                # Distribute penny remainder
+                base = (final_amount / Decimal(total_logical_shares)).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+                shares = [{'user': u, 'amount': base * user_counts[u]} for u in unique_users]
+                
                 total_calc = sum(s['amount'] for s in shares)
                 remainder = final_amount - total_calc
                 if remainder:
@@ -225,12 +233,40 @@ class CSVImporter:
                     steps = int(abs(remainder) / Decimal('0.01'))
                     shares.sort(key=lambda x: x['user'].id)
                     for i in range(steps):
-                        shares[i % n]['amount'] += penny
+                        shares[i % len(shares)]['amount'] += penny
             else:
-                # For unequal/percentage/share from CSV, equal-split as fallback
-                # (complex splits from CSV are flagged as anomalies above if needed)
-                base = (final_amount / Decimal(n)).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
-                shares = [{'user': u, 'amount': base} for u in valid_users]
+                # Handle percentage/unequal splits provided in split_details
+                shares = []
+                if split_details_raw:
+                    for part in split_details_raw.split(';'):
+                        if not part.strip(): continue
+                        match = re.search(r'([a-zA-Z0-9_]+)[^\d]*([\d\.]+)', part)
+                        if match:
+                            uname = match.group(1).lower()
+                            val = Decimal(match.group(2))
+                            u = next((u for u in unique_users if u.username.lower() == uname), None)
+                            if u:
+                                if split_type == 'percentage':
+                                    share_amt = (final_amount * (val / Decimal('100.00'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+                                    shares.append({'user': u, 'amount': share_amt})
+                                elif split_type == 'unequal':
+                                    shares.append({'user': u, 'amount': val})
+                                    
+                if shares:
+                    # Distribute remainder
+                    total_calc = sum(s['amount'] for s in shares)
+                    remainder = final_amount - total_calc
+                    if remainder:
+                        penny = Decimal('0.01') if remainder > 0 else Decimal('-0.01')
+                        steps = int(abs(remainder) / Decimal('0.01'))
+                        shares.sort(key=lambda x: x['user'].id)
+                        for i in range(steps):
+                            if i < len(shares):
+                                shares[i]['amount'] += penny
+                else:
+                    # Fallback to equal split logic if parsing failed
+                    base = (final_amount / Decimal(total_logical_shares)).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+                    shares = [{'user': u, 'amount': base * user_counts[u]} for u in unique_users]
 
             for s in shares:
                 ExpenseSplit.objects.create(expense=expense, user=s['user'], share_amount=s['amount'])
@@ -320,7 +356,7 @@ class CSVImporter:
                 d2 = abs((d - next_valid_date).days) if next_valid_date else 0
                 return d1 + d2
                 
-            if dist(dt1) < dist(dt2): return dt1, None
+            if dist(dt1) <= dist(dt2): return dt1, None
             else: return dt2, None
             
         if dt1: return dt1, None
