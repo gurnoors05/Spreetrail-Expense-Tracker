@@ -13,6 +13,11 @@ export default function BalancesPage() {
   const [loading,  setLoading]   = useState(false);
   const [gLoading, setGLoading]  = useState(true);
 
+  // Drill-down state
+  const [expandedUid, setExpandedUid] = useState(null);
+  const [ledgerData, setLedgerData] = useState(null);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+
   useEffect(() => { 
     groupsApi.list().then(r => setGroups(r.data)).finally(() => setGLoading(false)); 
     usersApi.list().then(r => setUsers(r.data)).catch(console.error);
@@ -24,10 +29,24 @@ export default function BalancesPage() {
   };
 
   const load = async (gid) => {
-    setSelected(gid); setLoading(true); setBalances(null);
+    setSelected(gid); setLoading(true); setBalances(null); setExpandedUid(null);
     try { const { data } = await groupsApi.balances(gid); setBalances(data); }
     catch(e) { console.error(e); }
     finally { setLoading(false); }
+  };
+
+  const toggleLedger = async (uid) => {
+    if (expandedUid === uid) {
+      setExpandedUid(null);
+      return;
+    }
+    setExpandedUid(uid);
+    setLedgerLoading(true);
+    try {
+      const { data } = await groupsApi.ledger(selected, uid);
+      setLedgerData(data);
+    } catch(e) { console.error(e); }
+    finally { setLedgerLoading(false); }
   };
 
   const simplified = balances?.simplified_debts || [];
@@ -68,20 +87,45 @@ export default function BalancesPage() {
                 const n = parseFloat(bal);
                 const isPos = n >= 0;
                 return (
-                  <div key={uid} className="card" style={{
-                    padding:'16px 20px', minWidth:160, flex:1,
-                    background: isPos ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
-                    border: `1px solid ${isPos ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
-                  }}>
-                    <div style={{ fontSize:12, color:'var(--text-muted)', fontWeight:600, marginBottom:4, textTransform: 'capitalize' }}>
-                      {getUserName(uid)}
+                  <div key={uid} style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: '100%', '@media (minWidth: 768px)': { minWidth: 'calc(50% - 12px)' } }}>
+                    <div className="card" onClick={() => toggleLedger(uid)} style={{
+                      padding:'16px 20px', cursor: 'pointer',
+                      background: isPos ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
+                      border: `1px solid ${isPos ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                      marginBottom: expandedUid === uid ? 12 : 0
+                    }}>
+                      <div style={{ fontSize:12, color:'var(--text-muted)', fontWeight:600, marginBottom:4, textTransform: 'capitalize' }}>
+                        {getUserName(uid)}
+                      </div>
+                      <div style={{ fontSize:22, fontWeight:800, color: isPos ? 'var(--success)' : 'var(--danger)' }}>
+                        {isPos ? '+' : ''}{fmt(n)}
+                      </div>
+                      <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
+                        {isPos ? 'is owed' : 'owes'} (click to view ledger)
+                      </div>
                     </div>
-                    <div style={{ fontSize:22, fontWeight:800, color: isPos ? 'var(--success)' : 'var(--danger)' }}>
-                      {isPos ? '+' : ''}{fmt(n)}
-                    </div>
-                    <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4 }}>
-                      {isPos ? 'is owed' : 'owes'}
-                    </div>
+                    {expandedUid === uid && (
+                      <div className="card" style={{ padding: 16, background: 'var(--bg-glass-h)', marginBottom: 12 }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ledger Breakdown</h4>
+                        {ledgerLoading ? <div className="spinner" /> : (
+                          <table className="tbl" style={{ fontSize: 12 }}>
+                            <thead><tr><th>Date</th><th>Event</th><th>Role</th><th style={{ textAlign:'right'}}>Amount</th></tr></thead>
+                            <tbody>
+                              {ledgerData?.map((item) => (
+                                <tr key={item.id}>
+                                  <td style={{ color: 'var(--text-muted)' }}>{item.date}</td>
+                                  <td>{item.event}</td>
+                                  <td>{item.role}</td>
+                                  <td style={{ textAlign:'right', fontWeight: 600, color: item.delta > 0 ? 'var(--success)' : 'var(--danger)' }}>
+                                    {item.delta > 0 ? '+' : ''}{fmt(item.delta)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}

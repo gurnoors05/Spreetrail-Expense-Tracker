@@ -49,6 +49,69 @@ class GroupViewSet(viewsets.ModelViewSet):
         balances = calculate_group_balances(group.id)
         return Response(balances)
 
+    @action(detail=True, methods=['get'])
+    def ledger(self, request, pk=None):
+        group = self.get_object()
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=400)
+            
+        user_id = int(user_id)
+        
+        from core.models import Expense, ExpenseSplit, Settlement
+        
+        expenses_paid = Expense.objects.filter(group=group, paid_by_id=user_id, status='active')
+        splits = ExpenseSplit.objects.filter(expense__group=group, user_id=user_id, expense__status='active')
+        settlements_sent = Settlement.objects.filter(group=group, paid_by_id=user_id)
+        settlements_received = Settlement.objects.filter(group=group, paid_to_id=user_id)
+        
+        ledger_items = []
+        
+        for e in expenses_paid:
+            ledger_items.append({
+                'id': f"exp_paid_{e.id}",
+                'date': str(e.date),
+                'event': e.description,
+                'role': 'Paid Expense',
+                'amount': float(e.amount),
+                'delta': float(e.amount)
+            })
+            
+        for s in splits:
+            ledger_items.append({
+                'id': f"split_{s.id}",
+                'date': str(s.expense.date),
+                'event': s.expense.description,
+                'role': 'Owes Share',
+                'amount': float(s.share_amount),
+                'delta': -float(s.share_amount)
+            })
+            
+        for s in settlements_sent:
+            ledger_items.append({
+                'id': f"stl_sent_{s.id}",
+                'date': str(s.date),
+                'event': s.note or f"Settlement to {s.paid_to.username}",
+                'role': 'Sent Settlement',
+                'amount': float(s.amount),
+                'delta': float(s.amount)
+            })
+            
+        for s in settlements_received:
+            ledger_items.append({
+                'id': f"stl_rec_{s.id}",
+                'date': str(s.date),
+                'event': s.note or f"Settlement from {s.paid_by.username}",
+                'role': 'Received Settlement',
+                'amount': float(s.amount),
+                'delta': -float(s.amount)
+            })
+            
+        # Sort chronologically
+        ledger_items.sort(key=lambda x: x['date'])
+        
+        return Response(ledger_items)
+
 class GroupMembershipViewSet(viewsets.ModelViewSet):
     queryset = GroupMembership.objects.all()
     serializer_class = GroupMembershipSerializer
@@ -80,7 +143,7 @@ class ImportBatchViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_parsers(self):
-        if self.action == 'create':
+        if getattr(self, 'action', None) == 'create':
             from rest_framework.parsers import MultiPartParser
             return [MultiPartParser()]
         return super().get_parsers()

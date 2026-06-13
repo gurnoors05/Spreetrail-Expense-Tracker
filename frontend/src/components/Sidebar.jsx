@@ -3,10 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 
 const NAV = [
   { to: '/dashboard',  icon: '⬡', label: 'Dashboard'  },
-  { to: '/groups',     icon: '◈', label: 'Groups'      },
-  { to: '/expenses',   icon: '⊕', label: 'Expenses'    },
-  { to: '/import',     icon: '⤒', label: 'Import CSV'  },
+  { to: '/groups',     icon: '👥', label: 'Groups'      },
+  { to: '/expenses',   icon: '💸', label: 'Expenses'    },
   { to: '/balances',   icon: '⇌', label: 'Balances'    },
+  { to: '/settlements',icon: '🤝', label: 'Settlements' },
+  { to: '/import',     icon: '📥', label: 'Import CSV'  },
 ];
 
 export default function Sidebar() {

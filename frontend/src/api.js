@@ -59,6 +59,7 @@ export const groupsApi = {
   update:          (id, d)  => api.patch(`/groups/${id}/`, d),
   delete:          (id)     => api.delete(`/groups/${id}/`),
   balances:        (id)     => api.get(`/groups/${id}/balances/`),
+  ledger:          (id, uid)=> api.get(`/groups/${id}/ledger/`, { params: { user_id: uid } }),
 };
 
 // ─── Memberships ─────────────────────────────────────────
@@ -80,7 +81,7 @@ export const expensesApi = {
 
 // ─── CSV Import ──────────────────────────────────────────
 export const importApi = {
-  upload: (data) => api.post('/import/', data),
+  upload: (data) => api.post('/import/', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
   report: (id) => api.get(`/import/${id}/report/`),
   list:   (params) => api.get('/import/', { params }),
 };
