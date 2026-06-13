@@ -1,12 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, CurrentUserView, GroupViewSet, GroupMembershipViewSet, ExpenseViewSet
+from .views import RegisterView, CurrentUserView, GroupViewSet, GroupMembershipViewSet, ExpenseViewSet, ImportBatchViewSet
 
 router = DefaultRouter()
 router.register(r'groups', GroupViewSet)
 router.register(r'memberships', GroupMembershipViewSet)
 router.register(r'expenses', ExpenseViewSet)
+router.register(r'import', ImportBatchViewSet, basename='import')
 
 urlpatterns = [
     # Auth

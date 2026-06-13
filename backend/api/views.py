@@ -54,3 +54,27 @@ class ExpenseViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user_groups = Group.objects.filter(memberships__user=self.request.user)
         return self.queryset.filter(group__in=user_groups)
+
+from rest_framework.parsers import MultiPartParser
+from core.importers import CSVImporter
+
+class ImportBatchViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def create(self, request):
+        file_obj = request.FILES.get('file')
+        group_id = request.data.get('group_id')
+        
+        if not file_obj or not group_id:
+            return Response({"error": "File and group_id are required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            group = Group.objects.get(id=group_id, memberships__user=request.user)
+        except Group.DoesNotExist:
+            return Response({"error": "Group not found or access denied."}, status=status.HTTP_404_NOT_FOUND)
+            
+        importer = CSVImporter(group=group, uploaded_by=request.user, file_name=file_obj.name)
+        batch = importer.process_file(file_obj)
+        
+        return Response({"message": "File uploaded and processed.", "batch_id": batch.id}, status=status.HTTP_201_CREATED)
