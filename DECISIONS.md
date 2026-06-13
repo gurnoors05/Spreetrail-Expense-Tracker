@@ -40,4 +40,4 @@
 
 ## 10. Ambiguous Dates
 **Decision:** We assume the CSV is ordered chronologically. For ambiguous dates (e.g., `04-05-2026` or missing-year `Mar-14`), we pick the interpretation that keeps the row's date >= the previous row's resolved date and <= the next row's resolved date.
-**Rationale:** Example: `Mar-14` between Mar 12 and Mar 15 resolves to Mar 14 of the current year context. `04-05-2026` between Mar 28 and Apr 2 resolves to Apr 5 (`05-04-2026`). If no interpretation satisfies the sequence, it's flagged as an anomaly.
+**Rationale:** Example: `Mar-14` between Mar 12 and Mar 15 resolves to Mar 14 of 2026. `04-05-2026` between Mar 28 and Apr 2 resolves to Apr 5 (`05-04-2026`). If no interpretation satisfies the sequence, it's flagged as an anomaly.

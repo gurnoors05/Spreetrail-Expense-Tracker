@@ -16,15 +16,22 @@ class CurrentUserView(generics.RetrieveAPIView):
     def get_object(self):
         return self.request.user
 
+from rest_framework.decorators import action
+from core.services import calculate_group_balances
+
 class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # In a real app, we'd filter by groups the user belongs to.
-    # For this assignment, we keep it simple or allow users to see groups they are in.
     def get_queryset(self):
         return self.queryset.filter(memberships__user=self.request.user).distinct()
+
+    @action(detail=True, methods=['get'])
+    def balances(self, request, pk=None):
+        group = self.get_object()
+        balances = calculate_group_balances(group.id)
+        return Response(balances)
 
 class GroupMembershipViewSet(viewsets.ModelViewSet):
     queryset = GroupMembership.objects.all()
@@ -33,5 +40,17 @@ class GroupMembershipViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Allow users to see memberships of groups they belong to
+        user_groups = Group.objects.filter(memberships__user=self.request.user)
+        return self.queryset.filter(group__in=user_groups)
+
+from core.models import Expense
+from .serializers import ExpenseSerializer
+
+class ExpenseViewSet(viewsets.ModelViewSet):
+    queryset = Expense.objects.all()
+    serializer_class = ExpenseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
         user_groups = Group.objects.filter(memberships__user=self.request.user)
         return self.queryset.filter(group__in=user_groups)
