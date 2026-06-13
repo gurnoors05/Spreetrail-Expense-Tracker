@@ -27,6 +27,16 @@ class GroupViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return self.queryset.filter(memberships__user=self.request.user).distinct()
 
+    def perform_create(self, serializer):
+        import datetime
+        group = serializer.save()
+        # Auto-enroll the creator as an active member from today
+        GroupMembership.objects.create(
+            group=group,
+            user=self.request.user,
+            joined_date=datetime.date.today(),
+        )
+
     @action(detail=True, methods=['get'])
     def balances(self, request, pk=None):
         group = self.get_object()

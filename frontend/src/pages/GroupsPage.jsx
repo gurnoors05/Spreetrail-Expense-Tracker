@@ -39,15 +39,26 @@ export default function GroupsPage() {
 
       {showCreate && (
         <div className="card" style={{ padding: 24, marginBottom: 24 }}>
-          <form onSubmit={create} style={{ display:'flex', gap: 12, alignItems:'flex-end' }}>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label className="form-label">Group Name</label>
-              <input id="group-name-input" className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Goa Trip 2026" required />
+          <form onSubmit={create} style={{ display:'flex', flexDirection:'column', gap: 12 }}>
+            <div style={{ display:'flex', gap: 12, alignItems:'flex-end' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Group Name</label>
+                <input
+                  id="group-name-input"
+                  className="form-input"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Goa Trip 2026"
+                  required
+                />
+              </div>
+              <button id="group-create-submit" className="btn btn-primary" type="submit" disabled={saving} style={{ height: 42, minWidth: 90 }}>
+                {saving ? <span className="spinner"/> : 'Create'}
+              </button>
             </div>
-            {error && <p className="form-error">{error}</p>}
-            <button id="group-create-submit" className="btn btn-primary" type="submit" disabled={saving} style={{ height: 42 }}>
-              {saving ? <span className="spinner"/> : 'Create'}
-            </button>
+            {error && (
+              <p className="form-error" style={{ marginTop: 4 }}>⚠ {error}</p>
+            )}
           </form>
         </div>
       )}
