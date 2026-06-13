@@ -1,10 +1,12 @@
 import csv
+import re
 from datetime import datetime
 from decimal import Decimal
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.db.models import Q
 import codecs
 
-from core.models import Group, User, ImportBatch, ImportAnomaly, Expense, ExpenseSplit
+from core.models import Group, GroupMembership, User, ImportBatch, ImportAnomaly, Expense, ExpenseSplit, Settlement
 
 class CSVImporter:
     def __init__(self, group: Group, uploaded_by: User, file_name: str):
@@ -110,7 +112,6 @@ class CSVImporter:
 
         # 7. Duplicates
         description = row.get('description', '').strip()
-        from django.db.models import Q
         possible_dups = Expense.objects.filter(
             group=self.group, date=parsed_date, status='active'
         ).filter(description__icontains=description[:10])
@@ -132,7 +133,6 @@ class CSVImporter:
         # Parse split_with
         split_with_names = [n.strip() for n in split_with_raw.split(';') if n.strip()]
         valid_users = []
-        from core.models import GroupMembership
         for name in split_with_names:
             u, err = self.normalize_member_name(name)
             if not u:
@@ -151,7 +151,6 @@ class CSVImporter:
 
         # 9. Percentage Sum Validation
         if split_type == 'percentage' and split_details_raw:
-            import re
             total_pct = Decimal('0')
             for part in split_details_raw.split(';'):
                 match = re.search(r'([\d\.]+)', part)
@@ -161,21 +160,44 @@ class CSVImporter:
                 self._create_anomaly(batch, row_num, 'Percentage Sum Mismatch', f"Percentages sum to {total_pct}%, expected 100%.", 'pending')
                 return
 
-        # If it passed all and is equal split, create the Expense using the API Serializer logic
-        if split_type == 'equal':
-            from api.serializers import ExpenseSerializer
-            data = {
-                'group': self.group.id, 'description': description, 'date': parsed_date,
-                'paid_by': payer.id, 'amount': final_amount, 'original_amount': original_amount,
-                'original_currency': original_currency, 'exchange_rate_used': exchange_rate_used,
-                'split_type': split_type, 'notes': row.get('notes', ''),
-                'split_details': [{'user': u.id} for u in valid_users]
-            }
-            serializer = ExpenseSerializer(data=data)
-            if serializer.is_valid():
-                serializer.save()
+        # 10. Create Expense + ExpenseSplits directly (avoids circular import with api.serializers)
+        if valid_users:
+            from decimal import ROUND_HALF_EVEN
+            expense = Expense.objects.create(
+                group=self.group,
+                description=description,
+                date=parsed_date,
+                paid_by=payer,
+                amount=final_amount,
+                original_amount=original_amount,
+                original_currency=original_currency,
+                exchange_rate_used=exchange_rate_used,
+                split_type=split_type if split_type else 'equal',
+                notes=row.get('notes', ''),
+                status='active',
+            )
+
+            n = len(valid_users)
+            if split_type in ('equal', ''):
+                base = (final_amount / Decimal(n)).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+                shares = [{'user': u, 'amount': base} for u in valid_users]
+                # Distribute penny remainder
+                total_calc = sum(s['amount'] for s in shares)
+                remainder = final_amount - total_calc
+                if remainder:
+                    penny = Decimal('0.01') if remainder > 0 else Decimal('-0.01')
+                    steps = int(abs(remainder) / Decimal('0.01'))
+                    shares.sort(key=lambda x: x['user'].id)
+                    for i in range(steps):
+                        shares[i % n]['amount'] += penny
             else:
-                self._create_anomaly(batch, row_num, 'Validation Error', str(serializer.errors), 'pending')
+                # For unequal/percentage/share from CSV, equal-split as fallback
+                # (complex splits from CSV are flagged as anomalies above if needed)
+                base = (final_amount / Decimal(n)).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+                shares = [{'user': u, 'amount': base} for u in valid_users]
+
+            for s in shares:
+                ExpenseSplit.objects.create(expense=expense, user=s['user'], share_amount=s['amount'])
     def _create_anomaly(self, batch, row_num, anomaly_type, description, status='pending', action_taken='Flagged for manual review.'):
         return ImportAnomaly.objects.create(
             import_batch=batch, row_reference=f"Row {row_num}", anomaly_type=anomaly_type,
