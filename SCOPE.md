@@ -19,7 +19,7 @@ This project is a Shared Expenses App built to handle complex group expense spli
 
 The importer detects and handles the following anomalies present in the provided CSV:
 
-1.  **Inconsistent Date Formats**: e.g., `Mar-14` (no year) and `04-05-2026` (ambiguous). Rows are expected to be in non-decreasing chronological order. The importer picks the interpretation (inferring the year if missing) that keeps the row's date >= the previous row's resolved date and <= the next row's resolved date. If no interpretation fits, it flags as a pending anomaly.
+1.  **Inconsistent Date Formats / Ambiguous Dates**: e.g., `Mar-14` (no year) and `04-05-2026` (ambiguous). The importer picks the interpretation that fits the chronological sequence (>= previous resolved date and <= next resolved date). For every genuinely ambiguous date resolved this way, it generates a dedicated `auto_applied` "Ambiguous Date" anomaly (4 instances total: Rows 2, 23, 34, 35) to ensure no "silent guesses". If no interpretation fits the sequence, it flags as a pending anomaly.
 2.  **Number Formatting**: Stripping thousands separators (e.g., `"1,200"`).
 3.  **Excessive Decimal Precision**: e.g., `899.995`. Handled via a precise Banker's rounding policy.
 4.  **Inconsistent Name Casing/Spacing**: e.g., `priya`, `Priya S`, `rohan `. Normalized to canonical member records.
@@ -35,7 +35,7 @@ The importer detects and handles the following anomalies present in the provided
 14. **Percentages Not Summing to 100%**: Always flagged as a pending `ImportAnomaly`. The resolution UI offers to either proportionally rescale to 100% or allow manual correction.
 15. **Stale/Incorrect Membership**: E.g. Meera in split after moving out. Corrected automatically by validating against `GroupMembership` active dates.
 16. **Mid-period Joins/Leaves**: Proper exclusion and inclusion based on `GroupMembership.joined_date` and `left_date`.
-17. **Share Splits**: Proportional parsing of explicit shares (e.g., `Aisha 1; Rohan 2`).
+17. **Share Splits**: Proportional parsing of explicit shares (e.g., `Aisha 1; Rohan 2`). Note: If a non-member is folded into a member during an `equal` split, the engine overrides the type to `share` to accurately reflect the uneven distribution.
 
 ## 3. Final Resolution of Specific Anomalies
 
@@ -47,3 +47,5 @@ During the import of `Expenses Export.csv`, the following 6 anomalies were resol
 - **Row 25 (Thalassa trip)**: Conflicting duplicate entries between Aisha (₹2,400) and Rohan (₹2,450). Resolved by keeping Aisha's entry and discarding Rohan's.
 - **Row 32 (Weekend brunch)**: Percentage mismatch. Resolved via equalization (**₹550 each** for Aisha, Rohan, Priya, Meera).
 - **Row 42 (Furniture for common room)**: Mismatch between split type (`equal`) and split details (which explicitly had individual amounts). Resolved by forcing an equal split (**₹3,000 each** across Aisha, Rohan, Priya, Sam).
+
+*Note on Anomaly Count:* The deployed Import Report shows 21 total anomalies even though there are 17 anomaly types. This is because (a) some rows trigger multiple anomalies simultaneously (e.g., Row 23 has an ambiguous date, a foreign currency conversion, AND a non-member-in-split issue, all logged separately), and (b) the 4 "Ambiguous Date" auto-applied entries were added in a later refinement pass to satisfy strict logging rules.

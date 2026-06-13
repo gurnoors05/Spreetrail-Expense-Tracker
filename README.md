@@ -11,7 +11,7 @@ specific cases where the AI's output was incorrect and how it was caught and fix
 
 ## Live Deployment
 
-- **Frontend (Vercel):** [https://YOUR-FRONTEND-URL.vercel.app](https://spreetrail-expense-tracker.vercel.app/)
+- **Frontend (Vercel):** https://spreetrail-expense-tracker.vercel.app/
 - **Backend API (Render):** https://spreetrail-expense-tracker-1.onrender.com
 - **Django Admin:** https://spreetrail-expense-tracker-1.onrender.com/admin/
 

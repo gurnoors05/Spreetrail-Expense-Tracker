@@ -41,8 +41,8 @@
 **Implementation Note:** For ambiguous percentage splits (e.g. "Pizza Friday" and "Weekend brunch"), they were resolved via the simpler "Force Equal" fallback rather than complex proportional rescaling, since equalization is mathematically simple and highly defensible for generic shared meals.
 
 ## 10. Ambiguous Dates
-**Decision:** We assume the CSV is ordered chronologically. For ambiguous dates (e.g., `04-05-2026` or missing-year `Mar-14`), we pick the interpretation that keeps the row's date >= the previous row's resolved date and <= the next row's resolved date.
-**Rationale:** Example: `Mar-14` between Mar 12 and Mar 15 resolves to Mar 14 of 2026. `04-05-2026` between Mar 28 and Apr 2 resolves to Apr 5 (`05-04-2026`). If no interpretation satisfies the sequence, it's flagged as an anomaly.
+**Decision:** We assume the CSV is ordered chronologically. For ambiguous dates (e.g., `04-05-2026` or missing-year `Mar-14`), the chronological sequence policy picks the interpretation that keeps the row's date >= the previous row's resolved date and <= the next row's resolved date. Furthermore, every time an ambiguous date is resolved in this way, it explicitly generates an `auto_applied` ImportAnomaly entry.
+**Rationale:** Sequence-based resolution minimizes manual data entry since humans typically log expenses chronologically. Generating an `auto_applied` anomaly entry for every resolution (there were 4 instances in the final CSV: Rows 2, 23, 34, 35) satisfies the strict "no silent guesses" requirement, surfacing the engine's inference for review.
 
 ## 11. Member Name Matching in CSV Importer
 **Decision:** The importer matches CSV `paid_by` / `split_with` values to `User.username` using two passes:
@@ -50,10 +50,14 @@
 2. **First-token fallback** — `'Priya S'` → first token `'priya'` → `username='priya'`
 
 If neither pass finds a user, it flags a `Non-member in Split` anomaly (e.g., `Kabir` who is not in the system).
-**Consequence:** Users **must be pre-created** with the correct lowercase first-name username before importing the CSV. No fuzzy or phonetic matching is performed.
+**Consequence:** Users **must be pre-created** with the correct lowercase first-name username before importing the CSV. No fuzzy or phonetic matching is performed. Note that first-token matching assumes unique first names within a group (e.g., it would break if both "Priya Sharma" and "Priya Kapoor" existed) — this is acceptable for this 6-person dataset but would require stricter matching rules in a larger system.
 **Test account usernames to use:** `aisha`, `rohan`, `priya`, `meera`, `sam`, `dev`
 
-## 12. Final Anomaly Resolutions (Expenses Export.csv)
+## 12. Parasailing Split Type Override
+**Decision:** When a non-member's share (like Kabir) is folded into an existing member's share (like Dev), meaning Dev gets 2 shares instead of 1, the resulting `Expense.split_type` is programmatically overridden from `equal` to `share`.
+**Rationale:** This ensures UI accuracy. The `split_type` must reflect the actual `ExpenseSplit` distribution so the frontend doesn't falsely misrepresent it as a 4-way equal split.
+
+## 13. Final Anomaly Resolutions (Expenses Export.csv)
 **Decision:** The following exact resolutions were manually applied to the 6 detected pending anomalies during the import of `Expenses Export.csv`:
 1. **Row 13 (House cleaning supplies)**: Missing payer. Resolved by manually assigning the payer to **Aisha**.
 2. **Row 15 (Pizza Friday)**: Percentage mismatch. Resolved via equalize (**₹360 each**).
@@ -61,3 +65,6 @@ If neither pass finds a user, it flags a `Non-member in Split` anomaly (e.g., `K
 4. **Row 25 (Thalassa trip)**: Conflicting duplicate entries. Resolved by keeping Aisha's **₹2,400** entry and discarding Rohan's **₹2,450** entry.
 5. **Row 32 (Weekend brunch)**: Percentage mismatch. Resolved via equalize (**₹550 each**).
 6. **Row 42 (Furniture for common room)**: Split type (`equal`) and split details (explicit amounts) mismatch. Resolved by forcing an equal split (**₹3,000 each**).
+
+## 14. Balance Calculation Formula
+**Decision:** A user's net balance is calculated by summing all `Expense.amount` where they are the `paid_by` (what they paid), minus the sum of their `ExpenseSplit.share_amount` (what they owe).
