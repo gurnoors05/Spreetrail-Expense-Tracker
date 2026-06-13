@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { groupsApi } from '../api';
+import { groupsApi, usersApi } from '../api';
 
 function fmt(v) {
   return new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:2 }).format(v);
@@ -7,12 +7,21 @@ function fmt(v) {
 
 export default function BalancesPage() {
   const [groups, setGroups]      = useState([]);
+  const [users, setUsers]        = useState([]);
   const [selected, setSelected]  = useState('');
   const [balances, setBalances]  = useState(null);
   const [loading,  setLoading]   = useState(false);
   const [gLoading, setGLoading]  = useState(true);
 
-  useEffect(() => { groupsApi.list().then(r => setGroups(r.data)).finally(() => setGLoading(false)); }, []);
+  useEffect(() => { 
+    groupsApi.list().then(r => setGroups(r.data)).finally(() => setGLoading(false)); 
+    usersApi.list().then(r => setUsers(r.data)).catch(console.error);
+  }, []);
+
+  const getUserName = (id) => {
+    const user = users.find(u => u.id === parseInt(id));
+    return user ? user.username : `User ${id}`;
+  };
 
   const load = async (gid) => {
     setSelected(gid); setLoading(true); setBalances(null);
@@ -64,7 +73,9 @@ export default function BalancesPage() {
                     background: isPos ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
                     border: `1px solid ${isPos ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
                   }}>
-                    <div style={{ fontSize:12, color:'var(--text-muted)', fontWeight:600, marginBottom:4 }}>User {uid}</div>
+                    <div style={{ fontSize:12, color:'var(--text-muted)', fontWeight:600, marginBottom:4, textTransform: 'capitalize' }}>
+                      {getUserName(uid)}
+                    </div>
                     <div style={{ fontSize:22, fontWeight:800, color: isPos ? 'var(--success)' : 'var(--danger)' }}>
                       {isPos ? '+' : ''}{fmt(n)}
                     </div>
@@ -96,13 +107,13 @@ export default function BalancesPage() {
                     <div style={{ display:'flex', alignItems:'center', gap:8, flex:1 }}>
                       <span style={{
                         background:'rgba(239,68,68,0.15)', color:'var(--danger)', padding:'4px 10px',
-                        borderRadius:'var(--radius-sm)', fontWeight:700, fontSize:13,
-                      }}>User {d.from_user}</span>
+                        borderRadius:'var(--radius-sm)', fontWeight:700, fontSize:13, textTransform:'capitalize'
+                      }}>{getUserName(d.from_user)}</span>
                       <span style={{ color:'var(--text-muted)', fontSize:13 }}>→ pays →</span>
                       <span style={{
                         background:'rgba(16,185,129,0.15)', color:'var(--success)', padding:'4px 10px',
-                        borderRadius:'var(--radius-sm)', fontWeight:700, fontSize:13,
-                      }}>User {d.to_user}</span>
+                        borderRadius:'var(--radius-sm)', fontWeight:700, fontSize:13, textTransform:'capitalize'
+                      }}>{getUserName(d.to_user)}</span>
                     </div>
                     <span style={{ fontSize:18, fontWeight:800, color:'var(--warning)' }}>{fmt(d.amount)}</span>
                   </div>
@@ -122,8 +133,8 @@ export default function BalancesPage() {
                 <tbody>
                   {pairwise.map((p, i) => (
                     <tr key={i}>
-                      <td style={{ fontWeight:600, color:'var(--danger)' }}>User {p.from_user}</td>
-                      <td style={{ fontWeight:600, color:'var(--success)' }}>User {p.to_user}</td>
+                      <td style={{ fontWeight:600, color:'var(--danger)', textTransform:'capitalize' }}>{getUserName(p.from_user)}</td>
+                      <td style={{ fontWeight:600, color:'var(--success)', textTransform:'capitalize' }}>{getUserName(p.to_user)}</td>
                       <td style={{ fontWeight:700, color:'var(--warning)' }}>{fmt(p.amount)}</td>
                     </tr>
                   ))}
