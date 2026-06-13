@@ -46,4 +46,5 @@ npm run dev
 The frontend UI will run on `http://localhost:5173/`.
 
 ## Deployment
-- **Live URL**: *(Placeholder for deployed URL)*
+- **Backend (Render)**: https://spreetrail-expense-tracker-1.onrender.com
+- **Frontend (Vercel)**: *(Pending Frontend Deployment)*
