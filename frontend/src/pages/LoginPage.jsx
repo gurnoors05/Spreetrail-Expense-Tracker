@@ -35,7 +35,7 @@ export default function LoginPage() {
       <div className="card page-enter" style={{ width: '100%', maxWidth: 420, padding: 40 }}>
         {/* Header */}
         <div style={{ marginBottom: 32, textAlign: 'center' }}>
-          <div className="gradient-text" style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>SpreeTrail</div>
+          <div className="gradient-text" style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>SpreeTail</div>
           <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Sign in to your account</div>
         </div>
 

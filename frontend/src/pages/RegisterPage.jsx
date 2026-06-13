@@ -34,7 +34,7 @@ export default function RegisterPage() {
       <div className="card page-enter" style={{ width: '100%', maxWidth: 440, padding: 40 }}>
         <div style={{ marginBottom: 32, textAlign: 'center' }}>
           <div className="gradient-text" style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Create Account</div>
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Join your group on SpreeTrail</div>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Join your group on SpreeTail</div>
         </div>
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

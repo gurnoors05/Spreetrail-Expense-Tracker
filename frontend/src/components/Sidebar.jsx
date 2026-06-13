@@ -25,7 +25,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div style={{ padding: '0 24px 28px' }}>
         <div className="gradient-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.5 }}>
-          SpreeTrail
+          SpreeTail
         </div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Expense Tracker</div>
       </div>

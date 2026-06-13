@@ -1,6 +1,6 @@
-# SpreeTrail Expense Tracker
+# SpreeTail Expense Tracker
 
-SpreeTrail is a full-stack web application for groups to track, split, and settle shared expenses.
+SpreeTail is a full-stack web application for groups to track, split, and settle shared expenses.
 It features an intelligent CSV import engine capable of ingesting historical, messy expense data
 and automatically detecting, flagging, and allowing interactive resolution of 16+ real-world data
 anomalies.
