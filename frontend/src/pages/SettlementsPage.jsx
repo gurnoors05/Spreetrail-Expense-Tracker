@@ -13,6 +13,9 @@ export default function SettlementsPage() {
   const [loading, setLoading]    = useState(false);
   const [gLoading, setGLoading]  = useState(true);
 
+  const [showForm, setShowForm]  = useState(false);
+  const [form, setForm]          = useState({ paid_by: '', paid_to: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' });
+
   useEffect(() => {
     groupsApi.list().then(r => setGroups(r.data)).finally(() => setGLoading(false));
     usersApi.list().then(r => setUsers(r.data)).catch(console.error);
@@ -24,12 +27,22 @@ export default function SettlementsPage() {
   };
 
   const load = async (gid) => {
-    setSelected(gid); setLoading(true); setSettlements([]);
+    setSelected(gid); setLoading(true); setSettlements([]); setShowForm(false);
     try {
       const { data } = await settlementsApi.list(gid);
       setSettlements(data);
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      await settlementsApi.create({ group: selected, ...form });
+      setShowForm(false);
+      setForm({ paid_by: '', paid_to: '', amount: '', date: new Date().toISOString().split('T')[0], note: '' });
+      load(selected);
+    } catch(e) { console.error(e); }
   };
 
   return (
@@ -54,8 +67,55 @@ export default function SettlementsPage() {
       </div>
 
       {selected && !loading && (
-        <div className="card" style={{ padding: 0, overflow:'hidden' }}>
-          <table className="tbl">
+        <div style={{ display:'flex', flexDirection:'column', gap: 24 }}>
+          {showForm ? (
+            <div className="card" style={{ padding: 24 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Record Settlement</h3>
+              <form onSubmit={handleCreate} style={{ display:'flex', flexDirection:'column', gap: 16 }}>
+                <div style={{ display:'flex', gap: 16 }}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Paid By (Sender)</label>
+                    <select className="form-select" value={form.paid_by} onChange={e => setForm({...form, paid_by: e.target.value})} required>
+                      <option value="">-- select user --</option>
+                      {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Paid To (Receiver)</label>
+                    <select className="form-select" value={form.paid_to} onChange={e => setForm({...form, paid_to: e.target.value})} required>
+                      <option value="">-- select user --</option>
+                      {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap: 16 }}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Amount (₹)</label>
+                    <input type="number" step="0.01" className="form-input" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required />
+                  </div>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Date</label>
+                    <input type="date" className="form-input" value={form.date} onChange={e => setForm({...form, date: e.target.value})} required />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Notes (Optional)</label>
+                  <input type="text" className="form-input" value={form.note} onChange={e => setForm({...form, note: e.target.value})} placeholder="e.g., May rent transfer" />
+                </div>
+                <div style={{ display:'flex', gap: 12, marginTop: 8 }}>
+                  <button type="submit" className="btn btn-primary">Save Settlement</button>
+                  <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div style={{ display:'flex', justifyContent:'flex-end' }}>
+              <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Record Settlement</button>
+            </div>
+          )}
+
+          <div className="card" style={{ padding: 0, overflow:'hidden' }}>
+            <table className="tbl">
             <thead>
               <tr>
                 <th>Date</th><th>Paid By</th><th>Paid To</th><th>Notes / Source</th><th style={{ textAlign:'right' }}>Amount</th>
@@ -84,6 +144,7 @@ export default function SettlementsPage() {
             </tbody>
           </table>
         </div>
+      </div>
       )}
       
       {!selected && !loading && (
