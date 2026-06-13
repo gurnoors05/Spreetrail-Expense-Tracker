@@ -18,10 +18,7 @@ class CSVImporter:
         self.last_resolved_date = None
 
     def process_file(self, file_obj: InMemoryUploadedFile):
-        batch = ImportBatch.objects.create(
-            uploaded_by=self.uploaded_by,
-            file_name=self.file_name
-        )
+        batch = ImportBatch.objects.create(group=self.group, uploaded_by=self.uploaded_by, file_name=self.file_name)
         
         # Read file
         reader = csv.DictReader(codecs.iterdecode(file_obj, 'utf-8'))
@@ -52,6 +49,7 @@ class CSVImporter:
         """
         Processes a single row, running it through the pipeline of anomaly detectors.
         """
+        self.current_row = row
         raw_date = row.get('date', '').strip()
         
         # 1. Date Format Detector
@@ -236,10 +234,12 @@ class CSVImporter:
 
             for s in shares:
                 ExpenseSplit.objects.create(expense=expense, user=s['user'], share_amount=s['amount'])
+
     def _create_anomaly(self, batch, row_num, anomaly_type, description, status='pending', action_taken='Flagged for manual review.'):
         return ImportAnomaly.objects.create(
             import_batch=batch, row_reference=f"Row {row_num}", anomaly_type=anomaly_type,
-            description=description, action_taken=action_taken, status=status
+            description=description, action_taken=action_taken, status=status,
+            raw_data=getattr(self, 'current_row', None)
         )
 
     def parse_amount(self, raw_amount: str, row_num: int):
@@ -313,6 +313,15 @@ class CSVImporter:
                 
             if valid_dt1 and not valid_dt2: return dt1, None
             if valid_dt2 and not valid_dt1: return dt2, None
+            
+            # If both are valid or both are invalid (e.g. slight out of order rows), minimize chronological distance
+            def dist(d):
+                d1 = abs((d - self.last_resolved_date).days) if self.last_resolved_date else 0
+                d2 = abs((d - next_valid_date).days) if next_valid_date else 0
+                return d1 + d2
+                
+            if dist(dt1) < dist(dt2): return dt1, None
+            else: return dt2, None
             
         if dt1: return dt1, None
         if dt2: return dt2, None

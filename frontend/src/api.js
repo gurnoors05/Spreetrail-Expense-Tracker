@@ -80,8 +80,9 @@ export const expensesApi = {
 
 // ─── CSV Import ──────────────────────────────────────────
 export const importApi = {
-  upload: (formData) => api.post('/import/', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  report: (batchId)  => api.get(`/import/${batchId}/report/`),
+  upload: (data) => api.post('/import/', data),
+  report: (id) => api.get(`/import/${id}/report/`),
+  list:   (params) => api.get('/import/', { params }),
 };
 
 // ─── Anomalies ───────────────────────────────────────────

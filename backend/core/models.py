@@ -67,6 +67,7 @@ class Settlement(models.Model):
         return f"{self.paid_by.username} paid {self.amount} to {self.paid_to.username}"
 
 class ImportBatch(models.Model):
+    group = models.ForeignKey('Group', on_delete=models.CASCADE, related_name='import_batches', null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='import_batches')
     file_name = models.CharField(max_length=255)
@@ -86,6 +87,7 @@ class ImportAnomaly(models.Model):
     anomaly_type = models.CharField(max_length=100)
     description = models.TextField()
     action_taken = models.TextField()
+    raw_data = models.JSONField(null=True, blank=True)
     resolved_by_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='resolved_anomalies')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
