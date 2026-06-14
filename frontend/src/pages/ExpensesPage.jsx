@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { expensesApi, groupsApi } from '../api';
+import { expensesApi, groupsApi, usersApi } from '../api';
 import { useAuth } from '../contexts/AuthContext';
 
 function fmt(v) {
@@ -12,6 +12,7 @@ const SPLIT_TYPES = ['equal', 'unequal', 'percentage', 'share'];
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState([]);
   const [groups,   setGroups]   = useState([]);
+  const [users,    setUsers]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving,   setSaving]   = useState(false);
@@ -29,8 +30,8 @@ export default function ExpensesPage() {
 
   const load = () => {
     const params = searchParams.get('group') ? { group: searchParams.get('group') } : {};
-    Promise.all([expensesApi.list(params), groupsApi.list()])
-      .then(([e, g]) => { setExpenses(e.data); setGroups(g.data); })
+    Promise.all([expensesApi.list(params), groupsApi.list(), usersApi.list()])
+      .then(([e, g, u]) => { setExpenses(e.data); setGroups(g.data); setUsers(u.data); })
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
@@ -103,7 +104,7 @@ export default function ExpensesPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">Amount (INR)</label>
-                <input id="exp-amount" className="form-input" type="number" min="0.01" step="0.01" value={form.amount} onChange={e => updateField('amount', e.target.value)} placeholder="0.00" required />
+                <input id="exp-amount" className="form-input" type="number" step="0.01" value={form.amount} onChange={e => updateField('amount', e.target.value)} placeholder="0.00" required />
               </div>
               <div className="form-group">
                 <label className="form-label">Split Type</label>
@@ -112,8 +113,11 @@ export default function ExpensesPage() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Paid By (User ID)</label>
-                <input id="exp-paid-by" className="form-input" type="number" value={form.paid_by} onChange={e => updateField('paid_by', e.target.value)} required />
+                <label className="form-label">Paid By</label>
+                <select id="exp-paid-by" className="form-select" value={form.paid_by} onChange={e => updateField('paid_by', e.target.value)} required>
+                  <option value="">Select User...</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Notes</label>
@@ -129,7 +133,10 @@ export default function ExpensesPage() {
               </div>
               {form.split_details.map((sd, i) => (
                 <div key={i} style={{ display:'flex', gap: 10, marginBottom: 8, alignItems:'center' }}>
-                  <input className="form-input" type="number" placeholder="User ID" value={sd.user} onChange={e => updateSplit(i, 'user', e.target.value)} style={{ flex:1 }} />
+                  <select className="form-select" value={sd.user} onChange={e => updateSplit(i, 'user', e.target.value)} style={{ flex:1 }} required>
+                    <option value="">Select Split User...</option>
+                    {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
+                  </select>
                   {form.split_type !== 'equal' && (
                     <input className="form-input" type="number" step="0.01"
                       placeholder={form.split_type === 'percentage' ? '%' : form.split_type === 'share' ? 'shares' : 'amount'}
