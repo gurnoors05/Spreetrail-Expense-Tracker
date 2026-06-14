@@ -44,7 +44,7 @@ During the import of `Expenses Export.csv`, the following 6 anomalies were resol
 - **Row 13 (House cleaning supplies)**: Missing payer. Resolved by manually assigning the payer to **Aisha**.
 - **Row 15 (Pizza Friday)**: Percentage mismatch (did not sum to 100%). Resolved via equalization (**₹360 each** for Aisha, Rohan, Priya, Sam).
 - **Row 23 (Parasailing)**: Kabir was listed in the split but is not a registered member. Resolved by folding Kabir's share directly into **Dev's** share (treating Dev as paying for his guest).
-- **Row 25 (Thalassa trip)**: Conflicting duplicate entries between Aisha (₹2,400) and Rohan (₹2,450). Resolved by keeping Aisha's entry and discarding Rohan's.
+- **Row 25 (Thalassa trip)**: Conflicting duplicate entries between Aisha (₹2,400) and Rohan (₹2,450). Resolved by keeping Rohan's entry and discarding Aisha's.
 - **Row 32 (Weekend brunch)**: Percentage mismatch. Resolved via equalization (**₹550 each** for Aisha, Rohan, Priya, Meera).
 - **Row 42 (Furniture for common room)**: Mismatch between split type (`equal`) and split details (which explicitly had individual amounts). Resolved by forcing an equal split (**₹3,000 each** across Aisha, Rohan, Priya, Sam).
 

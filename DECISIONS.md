@@ -62,7 +62,7 @@ If neither pass finds a user, it flags a `Non-member in Split` anomaly (e.g., `K
 1. **Row 13 (House cleaning supplies)**: Missing payer. Resolved by manually assigning the payer to **Aisha**.
 2. **Row 15 (Pizza Friday)**: Percentage mismatch. Resolved via equalize (**₹360 each**).
 3. **Row 23 (Parasailing)**: Kabir listed but is a non-member. Resolved by folding his share directly into **Dev's** share.
-4. **Row 25 (Thalassa trip)**: Conflicting duplicate entries. Resolved by keeping Aisha's **₹2,400** entry and discarding Rohan's **₹2,450** entry.
+4. **Row 25 (Thalassa trip)**: Conflicting duplicate entries. Resolved by keeping Rohan's **₹2,450** entry and discarding Aisha's **₹2,400** entry.
 5. **Row 32 (Weekend brunch)**: Percentage mismatch. Resolved via equalize (**₹550 each**).
 6. **Row 42 (Furniture for common room)**: Split type (`equal`) and split details (explicit amounts) mismatch. Resolved by forcing an equal split (**₹3,000 each**).
 
