@@ -243,6 +243,12 @@ class ImportAnomalyViewSet(viewsets.ModelViewSet):
                 anomaly.save()
                 return Response({"message": "Anomaly resolved successfully."})
             if resolution_data.get('action') == 'keep':
+                import re
+                match = re.search(r"Similar event '(.+)' has different amount", anomaly.description)
+                if match:
+                    orig_desc = match.group(1)
+                    from core.models import Expense
+                    Expense.objects.filter(group=anomaly.import_batch.group, description=orig_desc, status='active').delete()
                 row['description'] = row.get('description', '') + ' (Confirmed)'
 
         elif anomaly.anomaly_type == 'Split Details Mismatch':
