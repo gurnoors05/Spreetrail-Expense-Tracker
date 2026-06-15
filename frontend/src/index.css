@@ -150,3 +150,95 @@ body {
 .empty-state { text-align: center; padding: 60px 24px; color: var(--text-muted); }
 .empty-state h3 { font-size: 18px; color: var(--text-secondary); margin-bottom: 8px; }
 .empty-state p  { font-size: 14px; }
+
+/* ─── Sidebar layout ─── */
+.sidebar {
+  width: 220px; min-height: 100vh; background: var(--bg-surface);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  padding: 24px 0; position: fixed; top: 0; left: 0; z-index: 100;
+}
+
+.app-main {
+  margin-left: 220px; flex: 1; padding: 36px 40px;
+  background: var(--bg-base); min-height: 100vh;
+}
+
+.mobile-hamburger {
+  display: none; position: fixed; top: 14px; left: 14px; z-index: 150;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 12px; cursor: pointer;
+  color: var(--text-primary); transition: all var(--transition);
+}
+.mobile-hamburger:hover { border-color: var(--border-h); }
+
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 90; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+
+/* ─── Table responsive wrapper ─── */
+.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ─── Responsive: Tablets (≤ 1024px) ─── */
+@media (max-width: 1024px) {
+  .app-main { padding: 28px 24px; }
+
+  /* Dashboard grid stacks */
+  .dash-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ─── Responsive: Mobile (≤ 768px) ─── */
+@media (max-width: 768px) {
+  /* Show hamburger and overlay */
+  .mobile-hamburger { display: flex; align-items: center; justify-content: center; }
+  .sidebar-overlay  { display: block; }
+
+  /* Sidebar becomes slide-over */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+  .sidebar.sidebar--open {
+    transform: translateX(0);
+    box-shadow: 8px 0 40px rgba(0,0,0,0.5);
+  }
+
+  /* Main area takes full width */
+  .app-main { margin-left: 0; padding: 20px 16px; padding-top: 60px; }
+
+  /* Page headings */
+  .app-main h1 { font-size: 22px !important; }
+
+  /* Stat cards stack */
+  .stat-value { font-size: 22px; }
+
+  /* Forms: single column */
+  .form-grid-2col { grid-template-columns: 1fr !important; }
+
+  /* Tables: horizontal scroll + smaller font */
+  .tbl { font-size: 13px; }
+  .tbl th, .tbl td { padding: 10px 10px; white-space: nowrap; }
+
+  /* Balance settlement items stack */
+  .settle-item { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+  .settle-item > span:last-child { align-self: flex-end; }
+
+  /* Cards: reduce padding */
+  .card { border-radius: var(--radius-md); }
+
+  /* Buttons: full width on mobile for primary actions */
+  .btn-lg { width: 100%; }
+}
+
+/* ─── Responsive: Small phones (≤ 480px) ─── */
+@media (max-width: 480px) {
+  .app-main { padding: 14px 12px; padding-top: 56px; }
+  .app-main h1 { font-size: 20px !important; }
+  .stat-value { font-size: 18px; }
+  .btn { padding: 8px 14px; font-size: 13px; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* Hide less important table columns on very small screens */
+  .hide-mobile { display: none !important; }
+}

@@ -52,7 +52,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Expenses */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
+      <div className="dash-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <h2 style={{ fontSize: 16, fontWeight: 700 }}>Recent Expenses</h2>
@@ -63,6 +63,7 @@ export default function DashboardPage() {
           ) : expenses.length === 0 ? (
             <div className="empty-state"><p>No expenses yet. Add your first!</p></div>
           ) : (
+            <div className="table-responsive">
             <table className="tbl">
               <thead>
                 <tr>
@@ -80,6 +81,7 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

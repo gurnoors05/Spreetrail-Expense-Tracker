@@ -5,10 +5,7 @@ export default function AppLayout() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
-      <main style={{
-        marginLeft: 220, flex: 1, padding: '36px 40px',
-        background: 'var(--bg-base)', minHeight: '100vh',
-      }}>
+      <main className="app-main">
         <div className="page-enter">
           <Outlet />
         </div>

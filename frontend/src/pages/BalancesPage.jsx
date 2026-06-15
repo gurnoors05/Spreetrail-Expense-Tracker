@@ -108,6 +108,7 @@ export default function BalancesPage() {
                       <div className="card" style={{ padding: 16, background: 'var(--bg-glass-h)', marginBottom: 12 }}>
                         <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ledger Breakdown</h4>
                         {ledgerLoading ? <div className="spinner" /> : (
+                          <div className="table-responsive">
                           <table className="tbl" style={{ fontSize: 12 }}>
                             <thead><tr><th>Date</th><th>Event</th><th>Role</th><th style={{ textAlign:'right'}}>Amount</th></tr></thead>
                             <tbody>
@@ -123,6 +124,7 @@ export default function BalancesPage() {
                               ))}
                             </tbody>
                           </table>
+                          </div>
                         )}
                       </div>
                     )}
@@ -143,7 +145,7 @@ export default function BalancesPage() {
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {simplified.map((d, i) => (
-                  <div key={i} style={{
+                  <div key={i} className="settle-item" style={{
                     display:'flex', alignItems:'center', gap:12, padding:'14px 18px',
                     background:'rgba(245,158,11,0.06)', borderRadius:'var(--radius-sm)',
                     border:'1px solid rgba(245,158,11,0.15)',
@@ -172,6 +174,7 @@ export default function BalancesPage() {
               <div style={{ padding:'18px 24px', borderBottom:'1px solid var(--border)' }}>
                 <h2 style={{ fontSize:16, fontWeight:700 }}>Pairwise Balances</h2>
               </div>
+              <div className="table-responsive">
               <table className="tbl">
                 <thead><tr><th>From</th><th>To</th><th>Amount</th></tr></thead>
                 <tbody>
@@ -184,6 +187,7 @@ export default function BalancesPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>

@@ -86,7 +86,7 @@ export default function ExpensesPage() {
         <div className="card" style={{ padding: 28, marginBottom: 28 }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 20 }}>New Expense</h3>
           <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap: 16 }}>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 16 }}>
+            <div className="form-grid-2col" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 16 }}>
               <div className="form-group">
                 <label className="form-label">Group</label>
                 <select id="exp-group" className="form-select" value={form.group} onChange={e => updateField('group', e.target.value)} required>
@@ -167,6 +167,7 @@ export default function ExpensesPage() {
         </div>
       ) : (
         <div className="card" style={{ padding:0, overflow:'hidden' }}>
+          <div className="table-responsive">
           <table className="tbl">
             <thead>
               <tr>
@@ -187,6 +188,7 @@ export default function ExpensesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
